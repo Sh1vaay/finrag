@@ -1,0 +1,219 @@
+"""Unit tests for src/ingestion/chunker.py."""
+
+from src.ingestion.chunker import MAX_CHUNK_CHARS, OVERLAP_CHARS, _recursive_split, chunk_document
+
+
+# ---------------------------------------------------------------------------
+# chunk_document tests
+# ---------------------------------------------------------------------------
+
+def test_chunk_document_empty_text_returns_empty_list():
+    """chunk_document returns [] when the document text is empty."""
+    result = chunk_document({"text": ""}, {"doc_type": "10k"})
+    assert result == []
+
+
+def test_chunk_document_whitespace_only_returns_empty_list():
+    """chunk_document returns [] when the document text is only whitespace."""
+    result = chunk_document({"text": "   \n\n  \t  "}, {"doc_type": "10k"})
+    assert result == []
+
+
+def test_chunk_document_missing_text_key_returns_empty_list():
+    """chunk_document returns [] when the 'text' key is absent entirely."""
+    result = chunk_document({}, {"doc_type": "10k"})
+    assert result == []
+
+
+def test_chunk_document_short_text_returns_one_chunk():
+    """A short document that fits within MAX_CHUNK_CHARS produces exactly one chunk.
+
+    Chunk content includes a contextual prefix; the raw text
+    is preserved in raw_content.
+    """
+    doc = {"text": "This is a short document about quarterly earnings."}
+    metadata = {"doc_type": "10k", "company": "apple"}
+    result = chunk_document(doc, metadata)
+    assert len(result) == 1
+    assert result[0]["raw_content"] == doc["text"]
+    assert doc["text"] in result[0]["content"]  # content = prefix + raw
+    assert result[0]["content"].startswith("[")  # contextual prefix present
+
+
+def test_chunk_document_preserves_metadata():
+    """All supplied metadata keys are present in every chunk's metadata dict."""
+    metadata = {
+        "doc_type": "10k",
+        "company": "Tesla Inc.",
+        "confidentiality": "public",
+        "source_file": "tesla_10k_2023.pdf",
+    }
+    doc = {"text": "Automotive segment revenue: $82,419 million.\n\nEnergy storage deployment."}
+    result = chunk_document(doc, metadata)
+    assert len(result) >= 1
+    for chunk in result:
+        for key in ("doc_type", "company", "confidentiality", "source_file"):
+            assert key in chunk["metadata"], f"Missing key {key!r} in chunk metadata"
+            assert chunk["metadata"][key] == metadata[key]
+
+
+def test_chunk_document_adds_chunk_index_to_each_chunk():
+    """Each chunk's metadata includes a sequential chunk_index starting at 0."""
+    paragraph = "A" * 400
+    long_text = (paragraph + "\n\n") * 6
+    doc = {"text": long_text}
+    result = chunk_document(doc, {"doc_type": "10k"})
+    assert len(result) >= 2, "Expected at least 2 chunks from the long text"
+    for i, chunk in enumerate(result):
+        assert chunk["metadata"]["chunk_index"] == i
+
+
+def test_chunk_document_per_page_attaches_page_number():
+    """When document has a 'pages' list, each chunk gets its source page_number."""
+    doc = {
+        "pages": [
+            {"page_number": 1, "text": "Page one content about revenue."},
+            {"page_number": 2, "text": "Page two content about expenses."},
+            {"page_number": 3, "text": "Page three content about tax."},
+        ]
+    }
+    result = chunk_document(doc, {"doc_type": "10k"})
+    assert len(result) == 3
+    assert result[0]["metadata"]["page_number"] == 1
+    assert result[1]["metadata"]["page_number"] == 2
+    assert result[2]["metadata"]["page_number"] == 3
+    # chunk_index is sequential across pages
+    assert [c["metadata"]["chunk_index"] for c in result] == [0, 1, 2]
+
+
+def test_chunk_document_per_page_skips_empty_pages():
+    """Empty or whitespace-only pages are skipped when chunking per-page."""
+    doc = {
+        "pages": [
+            {"page_number": 1, "text": "Content here."},
+            {"page_number": 2, "text": ""},
+            {"page_number": 3, "text": "   \n\n  "},
+            {"page_number": 4, "text": "More content."},
+        ]
+    }
+    result = chunk_document(doc, {"doc_type": "10k"})
+    assert len(result) == 2
+    assert result[0]["metadata"]["page_number"] == 1
+    assert result[1]["metadata"]["page_number"] == 4
+
+
+def test_chunk_document_without_pages_field_has_no_page_number():
+    """When document lacks 'pages', chunks do not include page_number (backwards compat)."""
+    doc = {"text": "Plain text with no page info."}
+    result = chunk_document(doc, {"doc_type": "10k"})
+    assert len(result) == 1
+    assert "page_number" not in result[0]["metadata"]
+
+
+def test_chunk_document_does_not_mutate_input_metadata():
+    """The original metadata dict passed in is not mutated by chunk_document."""
+    metadata = {"doc_type": "10k", "company": "Apple Inc."}
+    original_keys = set(metadata.keys())
+    chunk_document({"text": "Some text."}, metadata)
+    assert set(metadata.keys()) == original_keys, "Input metadata dict was mutated"
+
+
+# ---------------------------------------------------------------------------
+# _recursive_split tests
+# ---------------------------------------------------------------------------
+
+def test_recursive_split_short_text_returns_one_chunk():
+    """Text shorter than chunk_size is returned as a single chunk."""
+    text = "Short paragraph one.\n\nShort paragraph two."
+    result = _recursive_split(text, chunk_size=800, overlap=0)
+    assert len(result) == 1
+    assert "Short paragraph one." in result[0]
+    assert "Short paragraph two." in result[0]
+
+
+def test_recursive_split_long_text_produces_multiple_chunks():
+    """Text significantly longer than chunk_size produces more than one chunk."""
+    paragraphs = ["X" * 300 for _ in range(6)]
+    text = "\n\n".join(paragraphs)
+    result = _recursive_split(text, chunk_size=800, overlap=0)
+    assert len(result) >= 2, f"Expected >=2 chunks, got {len(result)}"
+
+
+def test_recursive_split_falls_back_to_line_separator():
+    """When text has no \\n\\n breaks, falls back to \\n splitting."""
+    lines = ["Line " + str(i) + " " + "W" * 100 for i in range(20)]
+    text = "\n".join(lines)
+    result = _recursive_split(text, chunk_size=400, overlap=0)
+    assert len(result) >= 2, "Expected multiple chunks from line-based splitting"
+    for chunk in result:
+        assert len(chunk) <= 500  # Allow some tolerance for overlap
+
+
+def test_recursive_split_falls_back_to_sentence_separator():
+    """When text has no newlines, falls back to sentence splitting."""
+    sentences = ["Sentence number " + str(i) + " with some extra content." for i in range(30)]
+    text = " ".join(sentences)  # No newlines at all
+    result = _recursive_split(text, chunk_size=200, overlap=0)
+    assert len(result) >= 2, "Expected multiple chunks from sentence splitting"
+
+
+def test_recursive_split_handles_dense_text_without_separators():
+    """Very long text with no separators gets hard-split."""
+    text = "A" * 2000  # No spaces, no newlines
+    result = _recursive_split(text, chunk_size=800, overlap=0)
+    assert len(result) >= 2
+    # All content should be preserved
+    total_chars = sum(len(c) for c in result)
+    assert total_chars >= 2000
+
+
+def test_recursive_split_empty_paragraphs_are_skipped():
+    """Empty paragraphs (multiple consecutive newlines) are ignored."""
+    text = "First.\n\n\n\n\n\nSecond.\n\n\n\nThird."
+    result = _recursive_split(text, chunk_size=800, overlap=0)
+    assert len(result) == 1
+    assert "First." in result[0]
+    assert "Second." in result[0]
+    assert "Third." in result[0]
+
+
+def test_recursive_split_uses_default_params():
+    """Calling _recursive_split without explicit params uses module defaults."""
+    text = "Hello world."
+    result = _recursive_split(text)
+    assert len(result) == 1
+    assert result[0] == "Hello world."
+
+
+def test_recursive_split_all_content_preserved():
+    """All meaningful content from input appears in at least one output chunk."""
+    para_a = "Alpha paragraph content here."
+    para_b = "Beta paragraph content here."
+    big_para = "C" * 500
+    text = f"{para_a}\n\n{big_para}\n\n{para_b}"
+    result = _recursive_split(text, chunk_size=600, overlap=0)
+    full_text = " ".join(result)
+    assert para_a in full_text
+    assert para_b in full_text
+    assert big_para in full_text
+
+
+if __name__ == "__main__":
+    import inspect
+    import sys
+    current_module = sys.modules[__name__]
+    test_funcs = [
+        obj for name, obj in inspect.getmembers(current_module)
+        if inspect.isfunction(obj) and name.startswith("test_")
+    ]
+    print(f"Running {len(test_funcs)} chunker unit tests...")
+    passed = 0
+    for fn in test_funcs:
+        try:
+            fn()
+            passed += 1
+        except Exception as e:
+            print(f"FAILED: {fn.__name__} - {e}")
+            raise
+    print(f"All {passed}/{len(test_funcs)} tests passed successfully!")
+

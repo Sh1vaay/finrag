@@ -1,0 +1,232 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "finrag-agent"
+version = "0.3.5"
+description = "Multi-agent RAG system for RBAC-secured financial document Q&A. Ships a CLI client + self-hostable FastAPI backend."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11,<3.14"
+authors = []
+keywords = ["rag", "langgraph", "finance", "llm", "agent", "rbac", "hitl"]
+classifiers = [
+    "Private :: Do Not Upload",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Main dependencies — what `pip install finrag-agent` pulls.
+# Only what the THIN CLI client needs to talk to a backend. Backend runtime
+# deps (fastapi, langgraph, qdrant-client, etc.) live in [backend] extras
+# because PyPI installers run the backend in docker; the api container's
+# pyproject.toml install pulls .[backend] and gets the heavy stuff.
+# Pre-0.1.1: a fresh pip install was ~500 MB and the CLI broke at first
+# import because httpx-sse + prompt_toolkit lived in the gated [cli] extra.
+dependencies = [
+    "typer>=0.12,<1.0",
+    "rich>=13.0,<15.0",
+    "prompt_toolkit>=3.0,<4.0",
+    "httpx>=0.28,<1.0",
+    "httpx-sse>=0.4,<1.0",
+    "python-dotenv>=1.0,<2.0",
+]
+
+[project.optional-dependencies]
+# Backend runtime — what the api container needs. Self-hosters running the
+# backend on bare metal (not docker) install via `pip install .[backend]`.
+backend = [
+    # Orchestration
+    "langgraph>=1.0.0,<2.0.0",
+    "langchain>=0.3,<1.0",
+    "langchain-core>=0.3,<1.0",
+    "langchain-openai>=0.3,<1.0",
+    "langchain-groq>=0.2,<1.0",
+    "langchain-anthropic>=0.3,<1.0",
+
+    # FastAPI server
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.34,<1.0",
+    "sse-starlette>=2.0,<4.0",
+    "python-multipart>=0.0.18",
+
+    # Vector DB
+    # 0.1.8: pin client tighter to match the qdrant 1.13.2 server image used
+    # by compose.minimal.yml + docker-compose.yml. Pre-pin, pip resolved to
+    # 1.18.x and emitted a UserWarning on every Qdrant call:
+    # "client 1.18.0 is incompatible with server 1.13.2 — minor version
+    # difference must not exceed 1." Functional but log-noisy. Bumping the
+    # server image to a 1.18-compatible release is a 0.2.0-scoped decision
+    # (volume reflow risk); pinning the client is the cheap fix.
+    "qdrant-client>=1.13,<1.15",
+    "fastembed>=0.4,<1.0",
+
+    # Reranker — sentence-transformers ships the BGE cross-encoder; peft is
+    # required by reranker_service.py for the optional LoRA adapter path
+    # and gets imported at module load even when no adapter is configured.
+    # Adding it as a hard dep is cheaper than gating the import behind every
+    # call site (post-0.1.0 finding: M1 install had peft missing and the
+    # reranker failed to load at boot, breaking the entire pipeline).
+    "sentence-transformers>=3.0,<5.0",
+    "peft>=0.13,<2.0",
+
+    # Model Context Protocol & Financial Market Data
+    "mcp>=2.0,<3.0",
+    "yfinance>=0.2,<2.0",
+
+    # Document parsing
+    # 0.3.1: docling moved to the optional [docling] extra. pypdf is the
+    # canonical parser (per the credibility-rule eval evidence — docling
+    # underperforms pypdf by ~29pp on RAGAS faith + ctx_prec). Dropping
+    # docling + its OpenCV/opencv-libs dependency family saves ~180 MB
+    # uncompressed. The ingestion code in src/ingestion/docling_loader.py
+    # already handles ImportError gracefully (line 64-68 returns None and
+    # the chunker falls back to per-page pypdf chunking automatically).
+    # Users who want docling: pip install ".[docling]" — but they also
+    # need libxcb1 + libgl1 system packages for the OpenCV runtime, which
+    # the 0.3.1 Dockerfile no longer installs.
+    "pypdf>=5.0,<7.0",
+
+    # Embedding providers
+    "openai>=1.60,<3.0",
+    "voyageai>=0.3,<1.0",
+
+    # Auth
+    "PyJWT>=2.9,<3.0",
+    "python-jose[cryptography]>=3.3,<4.0",
+
+    # Guardrails
+    "presidio-analyzer>=2.2,<3.0",
+    "presidio-anonymizer>=2.2,<3.0",
+    "llm-guard>=0.3,<1.0",
+
+    # LangGraph persistence
+    "langgraph-checkpoint-postgres>=2.0,<4.0",
+    "psycopg[binary]>=3.2,<4.0",
+
+    # Config (pydantic-settings is backend-only; the CLI uses python-dotenv)
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings>=2.6,<3.0",
+
+    # Observability
+    "langsmith>=0.4,<1.0",
+    "openinference-instrumentation-langchain>=0.1,<1.0",
+    "arize-phoenix-otel>=0.17,<1.0",
+    "opentelemetry-exporter-otlp>=1.20,<2.0",
+
+    # Result cache (per-stage Redis caches)
+    "redis>=5.0,<6.0",
+
+    # Migrations
+    "alembic>=1.13,<2.0",
+
+    # 0.3.0: HF snapshot consumer side (finrag seed --from-hf). pyarrow
+    # is needed for chunks.parquet read; huggingface_hub is already pulled
+    # transitively by sentence-transformers/transformers but pinned here so
+    # the seed_from_hf.py path doesn't break if those swap pullers.
+    "pyarrow>=15.0,<25.0",
+    "huggingface_hub>=0.26,<1.0",
+]
+
+# 0.3.1: docling extra — installs docling + its OpenCV deps for users who
+# want the (slower, lower-accuracy) docling parser path. Container users
+# also need libxcb1 + libgl1 system packages; the 0.3.1 Dockerfile no
+# longer pre-installs them.
+docling = [
+    "docling>=2.70,<3.0",
+]
+
+test = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.24,<1.0",
+    "pytest-timeout>=2.3,<3.0",
+]
+scripts = [
+    "fpdf2>=2.8,<3.0",
+    "reportlab>=4.0,<5.0",
+    "requests>=2.31,<3.0",
+    "edgartools>=3.0,<5.0",
+    "xgboost>=2.1,<4.0",
+]
+eval = [
+    "ragas>=0.2,<1.0",
+    "datasets>=3.0,<4.0",
+    "deepeval>=3.9,<4.0",
+]
+dev = [
+    "ruff>=0.8,<1.0",
+    "pre-commit>=4.0,<5.0",
+    "build>=1.2,<2.0",
+    "finrag-agent[backend]",
+    "finrag-agent[test]",
+    "finrag-agent[eval]",
+    "finrag-agent[scripts]",
+]
+
+
+[project.scripts]
+finrag = "cli.__main__:app"
+
+[project.urls]
+Homepage = "https://github.com/Sh1vaay/finrag"
+Repository = "https://github.com/Sh1vaay/finrag.git"
+Issues = "https://github.com/Sh1vaay/finrag/issues"
+Documentation = "https://github.com/Sh1vaay/finrag#readme"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "cli"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/",
+  "cli/",
+  "scripts/",
+  "docs/",
+  "tests/",
+  "alembic/",
+  "data/sample/",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+  "Makefile",
+  "Dockerfile",
+  "requirements-backend.txt",
+  "compose.minimal.yml",
+  "docker-compose.yml",
+  ".env.example",
+  "alembic.ini",
+]
+exclude = [
+  "data/raw/**",
+  "data/models/**",
+  "scripts/internal/**",
+  "tests/evaluation/**",
+  "tests/integration/**",
+  "**/__pycache__/**",
+  "**/*.pyc",
+  "**/.DS_Store",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# protobuf's C extension types emit a DeprecationWarning at import time about
+# PyType_Spec metaclass tp_new (Python 3.14 prep). Fired from the import
+# machinery itself, before pytest's pyproject filterwarnings get applied —
+# only pytest's own addopts -W is early enough to catch it.
+addopts = ["-W", "ignore:Type google.protobuf.pyext._message:DeprecationWarning"]

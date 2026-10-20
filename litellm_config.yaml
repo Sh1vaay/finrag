@@ -1,0 +1,87 @@
+# LiteLLM proxy config
+#
+# Routes chat-completion calls through a single OpenAI-compatible
+# endpoint at http://litellm:4000/v1 with Redis semantic caching
+# and Langfuse trace logging.
+#
+# Model-name conventions:
+#   - Exposes canonical model names (e.g. "claude-sonnet-4-6") as identifiers
+#   - Underlying provider model is named via `litellm_params.model`
+#     using LiteLLM's provider/model syntax ("anthropic/claude-sonnet-4-6")
+#
+# API keys come from the LiteLLM container's environment (passed via
+# docker-compose env_file) — NEVER hard-coded here.
+
+model_list:
+  # ─── Anthropic (generator / synthesize / HITL) ───
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-opus-4-7
+    litellm_params:
+      model: anthropic/claude-opus-4-7
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # ─── OpenAI (decompose / sufficiency / eval judges / fallback) ───
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  # ─── Groq (fast-path router / grader / entity-extractor) ───
+  - model_name: llama-3.3-70b-versatile
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+
+  # ─── Local / Open-Source System 1 Decider SLM ───
+  - model_name: strands-decider:2b
+    litellm_params:
+      model: openai/strands-decider:2b
+      api_base: os.environ/DECIDER_2B_BASE_URL
+      api_key: "local"
+
+  # ─── Embeddings (backs the redis-semantic cache) ───
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+# ─── Routing strategy ───
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  request_timeout: 120
+
+# ─── General settings ───
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  max_budget: 10.0
+  budget_duration: 24h
+  # ── Redis-backed semantic cache ──
+  cache: true
+  cache_params:
+    type: redis-semantic
+    similarity_threshold: 0.95
+    redis_semantic_cache_embedding_model: text-embedding-3-small
+
+  # ── Forward LLM calls to self-hosted Langfuse ──
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+  redact_user_api_key_info: true
+
+general_settings:
+  store_model_in_db: false

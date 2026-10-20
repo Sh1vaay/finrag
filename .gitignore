@@ -1,0 +1,184 @@
+# ==============================================================================
+# Python Artifacts & Bytecode
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+*.so
+*.dylib
+*.dll
+
+# ==============================================================================
+# Virtual Environments & Package Managers
+# ==============================================================================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.uv/
+.uv-cache/
+
+# ==============================================================================
+# Environment Variables & Cryptographic Secrets (Strict Guard)
+# ==============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pkcs12
+*.pfx
+*.p12
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+credentials.json
+client_secret*.json
+service_account*.json
+token.json
+tokens.json
+
+# ==============================================================================
+# IDEs, Text Editors, and AI Coding Agent Artifacts
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+.project
+.pydevproject
+.settings/
+
+# Agentic tool local states
+.agents/
+.claude/
+CLAUDE.md
+.gemini/
+.cursor/
+.windsurf/
+.copilot/
+skills-lock.json
+
+# ==============================================================================
+# Operating System Metadata
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ==============================================================================
+# Data, Storage Substrates, & Caches
+# ==============================================================================
+# Raw corpora & SEC HTML downloads
+data/raw/
+data/raw/sec/
+
+# Dynamic local databases & journals
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/sec_cache/
+sec_edgar_cache.db*
+
+# Docker local persistence mounts
+qdrant_data/
+pg_data/
+redis_data/
+langfuse_*_data/
+langfuse_clickhouse_logs/
+
+# Large model weights & fine-tuning checkpoints
+data/models/grader_ft_v1_hard_r8/
+data/models/grader_ft_v1_mixed_r8/
+data/models/grader_ft_v1_random_r8/
+data/models/reranker_ft_v2_local_partial/
+data/models/reranker_ft_v2_partial_epoch1/
+data/training/grader_ft_v1/
+
+# Large disk backup artifacts
+Docker-backup-*.raw
+dist/hf-snapshot-*/
+publish-assets/
+
+# ==============================================================================
+# Logs, Audits, & Telemetry
+# ==============================================================================
+logs/
+cost_logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==============================================================================
+# Testing, Coverage, & Benchmarks
+# ==============================================================================
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+tests/m1-test/
+
+# Evaluation results (intermediate generated runs ignored)
+tests/evaluation/eval_results/*.json
+tests/evaluation/eval_results/*.pipeline.json
+
+# Baseline evaluation snapshots preserved if added
+!tests/evaluation/eval_results/baseline_*.json
+!tests/evaluation/eval_results/final_*.json
+
+
+# ==============================================================================
+# Miscellaneous Scratch & Planning Files
+# ==============================================================================
+.ipynb_checkpoints/
+SESSION_HANDOFF.md
+IMPLEMENTATION_PLAN.md
+IMPROVEMENT_PLAN.md
+PROJECT_MASTER_DOCUMENT.md
+DEPLOYMENT_PLAN.md
+COMMANDS.txt
+CLEANUP_PLAN.md
+Untitled.txt
+_course_materials/
+docs/diagrams/excalidraw/*.md
+about-me/

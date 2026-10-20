@@ -1,0 +1,41 @@
+name: CI Matrix
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Unit & Quantitative Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Lint with Ruff
+        run: |
+          uv run ruff check src/ tests/
+          uv run ruff format --check src/ tests/
+
+      - name: Run Unit & Quantitative Test Suites
+        run: |
+          uv run pytest tests/unit/ -v
+          uv run tests/run_all_unit_tests.py

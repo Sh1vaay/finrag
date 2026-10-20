@@ -1,0 +1,29 @@
+{
+  "portfolio_name": "Global Equity Focus Mandate",
+  "as_of_date": "2026-10-15",
+  "base_currency": "USD",
+  "benchmark": "MSCI World",
+  "holdings": {
+    "AAPL": 14.5,
+    "MSFT": 12.0,
+    "NVDA": 9.5,
+    "AMZN": 7.5,
+    "GOOGL": 6.5,
+    "META": 5.5,
+    "TSLA": 4.0,
+    "JPM": 3.5,
+    "BRK-B": 3.0,
+    "UNH": 2.5,
+    "V": 2.5,
+    "XOM": 2.0,
+    "JNJ": 2.0,
+    "WMT": 1.8,
+    "PG": 1.7,
+    "MA": 1.5,
+    "HD": 1.5,
+    "LLY": 1.5,
+    "COST": 1.5,
+    "MRK": 1.2
+  },
+  "description": "Institutional sample portfolio holdings with weights in percent. Top holdings: AAPL (14.5%), MSFT (12.0%), NVDA (9.5%). Used as sample data input for calculate_portfolio_risk_metrics (HHI concentration risk)."
+}

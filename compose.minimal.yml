@@ -1,0 +1,125 @@
+# Minimal 4-service stack for the finrag CLI. Drops the 6-service
+# Langfuse stack + LiteLLM gateway (LITELLM_URL="" → direct-provider mode in
+# src/services/llm_factory.py). Cost tracking still works in this mode via
+# the file-based cost_tracker callback (src/services/cost_tracker.py) — wired
+# at 7 LLMFactory attachment points, writes to ./cost_logs/cost_log.jsonl on
+# the host. The full docker-compose.yml remains the right choice for users
+# who want the Langfuse trace UI and the centralized LLM gateway.
+
+services:
+  api:
+    # 0.2.0: image: + build: dual setup. Default flow (finrag upgrade)
+    # uses `docker compose pull`. To force a
+    # local source build instead, set BUILD_FROM_SOURCE=1 or pass --build
+    # to `finrag upgrade` — then `docker compose build` uses the
+    # build: section below (slower, ~10 min on M1 with cold cache).
+    #
+    # FB_IMAGE_TAG is set by the wizard from cli.__version__ so each release
+    # pulls the matching image. The :-0.2.0 fallback covers users running
+    # docker compose by hand.
+    image: finrag-agent-api:${FB_IMAGE_TAG:-0.3.5}
+    # 0.1.5: build.args.GIT_SHA — passes the host's `git rev-parse HEAD` (set
+    # in the env by cli/commands/setup.py:_bring_up_stack) into the Dockerfile's
+    # ARG GIT_SHA → ENV GIT_SHA wiring. _git_sha() in src/api/main.py reads
+    # the resulting ENV. Without this the banner reports "sha unknown".
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      QDRANT_HOST: qdrant
+      POSTGRES_HOST: postgres
+      RESULT_CACHE_REDIS_HOST: redis
+      RESULT_CACHE_REDIS_PORT: "6379"
+      LITELLM_URL: ""
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      # 0.2.2: cost_logs + logs are NAMED VOLUMES (not bind mounts) so they
+      # inherit the in-image appuser ownership. Bind-mounting host directories
+      # on raw Linux (no Docker Desktop UID translation) gave the container's
+      # appuser UID 1000 a host directory owned by whoever ran `docker compose
+      # up` — typically UID 1001 on Ubuntu — and event_log.py's first
+      # logs/run_*.jsonl open() raised PermissionError. CI's 0.2.1 verify job
+      # hit this; the Linux-install path needed a chmod 777 workaround. Named
+      # volumes sidestep the UID question entirely. Access host-side via
+      # `finrag logs` (which docker-execs into the container).
+      - api_logs:/app/logs
+      - api_cost_logs:/app/cost_logs
+      - hf_cache:/home/appuser/.cache/huggingface
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 360s
+      retries: 3
+    networks: [rag-net]
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks: [rag-net]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-rag_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag_user} -d ${POSTGRES_DB:-rag_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks: [rag-net]
+
+  redis:
+    image: redis/redis-stack-server:7.2.0-v11
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [rag-net]
+
+volumes:
+  qdrant_data:
+  pg_data:
+  redis_data:
+  hf_cache:
+  api_logs:
+  api_cost_logs:
+
+networks:
+  rag-net:
+    driver: bridge

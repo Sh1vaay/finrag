@@ -1,0 +1,713 @@
+# API Reference
+
+Base URL: `http://localhost:8000` (dev)
+
+Interactive docs: `http://localhost:8000/docs` (FastAPI-generated OpenAPI)
+
+## Authentication
+
+All endpoints except `POST /auth/login` and `GET /health` require an `Authorization: Bearer <jwt>` header. JWTs are HS256, default 24h expiry; payload includes `sub` (user_id), `name`, `role`, `department`.
+
+### POST `/auth/login`
+
+Exchange username/password for a JWT plus the full identity tuple — so the frontend can render the user header on first paint without a separate `/auth/me` round-trip.
+
+**Request**:
+```json
+{
+  "username": "analyst",
+  "password": "analyst123"
+}
+```
+
+**Response** (200):
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "user_id": "analyst",
+  "name": "Senior Equity Analyst",
+  "role": "research_analyst",
+  "department": "Fundamental Equities"
+}
+```
+
+**Errors**:
+- `401` — Invalid credentials
+
+### GET `/auth/me`
+
+Return the current user's identity plus role-derived RBAC permissions. Frontend calls this on app boot (or after a token refresh) to re-hydrate user state without keeping the JWT payload as the client's source of truth. The permissions block lets the UI gate admin nav, upload buttons, HITL approval surfaces, etc.
+
+**Response** (200):
+```json
+{
+  "user_id": "analyst",
+  "name": "Senior Equity Analyst",
+  "role": "research_analyst",
+  "department": "Fundamental Equities",
+  "permissions": {
+    "allowed_doc_types": ["10k", "10q", "earnings_transcript", "equity_research"],
+    "allowed_confidentiality": ["public", "internal"],
+    "max_results": 10,
+    "requires_hitl_above": 100000
+  }
+}
+```
+
+`permissions` reflects the (DB-backed) `roles` table, so live admin-panel edits via `/admin/roles` propagate without a redeploy. `requires_hitl_above` is `null` for roles that never trigger HITL.
+
+**Errors**:
+- `401` — Missing or invalid JWT
+
+## Chat
+
+### POST `/chat`
+
+Run a query through the full RAG pipeline (blocking).
+
+**Request**:
+```json
+{
+  "message": "What was Apple's total revenue in fiscal year 2023?",
+  "thread_id": "optional-uuid-for-multi-turn"
+}
+```
+
+If `thread_id` is omitted, a new one is generated and returned. Pass the same `thread_id` on follow-up turns to preserve conversation context.
+
+**Response** (200):
+```json
+{
+  "response": "Apple's total revenue in fiscal year 2023 was $383,285 million [Source: 10k_apple_2023.pdf, Page 1].",
+  "sources": [
+    {
+      "file": "10k_apple_2023.pdf",
+      "page": 1,
+      "section": "",
+      "doc_type": "10k"
+    }
+  ],
+  "confidence": 1.0,
+  "requires_approval": false,
+  "thread_id": "cc1840f8-db41-4394-9c40-ed2c97a998ac"
+}
+```
+
+When `requires_approval` is `true`, the graph paused for HITL. The `sources` array is empty in this case — resolve approval via `/hitl/approve` or `/hitl/reject` to get the final sources.
+
+### POST `/chat/stream`
+
+Same request body as `/chat`. Returns a Server-Sent Events stream.
+
+**Event types** (one JSON object per `data:` line):
+
+| Type | Fields | Meaning |
+|------|--------|---------|
+| `node_start` | `node`, `label` | A graph node just started (e.g., "Searching documents") |
+| `node_end` | `node` | A graph node finished |
+| `token` | `content` | Streaming token from the generator LLM |
+| `hitl_interrupt` | `thread_id`, `reason`, `answer_preview` | Graph paused for approval |
+| `final` | `response`, `sources`, `confidence`, `requires_approval`, `thread_id` | Final response (end of stream) |
+| `error` | `message` | Unrecoverable error during processing |
+
+**Example client** (Python):
+```python
+async with httpx.AsyncClient() as client:
+    async with client.stream("POST", f"{API}/chat/stream",
+                              json={"message": "..."},
+                              headers={"Authorization": f"Bearer {token}"}) as r:
+        async for line in r.aiter_lines():
+            if line.startswith("data:"):
+                event = json.loads(line[5:].strip())
+                print(event["type"], event)
+```
+
+## Threads (Conversation History)
+
+The frontend sidebar lists prior conversations and lets users resume them. Ownership is enforced by the `user_id` embedded in LangGraph's checkpoint metadata at chat-route time — cross-user access returns 403, not 404, so the API doesn't leak existence between users.
+
+### GET `/threads`
+
+List the caller's threads, newest first.
+
+**Query**: `limit` (default 50, max 200), `offset` (default 0).
+
+**Response** (200):
+```json
+{
+  "threads": [
+    {
+      "thread_id": "cc1840f8-db41-...",
+      "title": "What was Apple's FY2023 revenue?",
+      "checkpoint_count": 4,
+      "is_interrupted": false
+    }
+  ],
+  "total": 12,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+`title` is the first user message captured in the earliest checkpoint, truncated to 80 chars. `is_interrupted=true` means the thread is paused at a HITL gate and needs approval before it can produce a final answer.
+
+**Errors**:
+- `401` — Missing or invalid JWT
+- `503` — Checkpoint store not initialized (HITL/threads disabled)
+
+### GET `/threads/{thread_id}`
+
+Load messages + interrupt state for one thread.
+
+**Response** (200):
+```json
+{
+  "thread_id": "cc1840f8-...",
+  "messages": [
+    {"role": "user", "content": "What was Apple's FY2023 revenue?"},
+    {
+      "role": "assistant",
+      "content": "Apple's FY2023 revenue was $383.3B...",
+      "sources": [{"file": "10k_aapl_2023.pdf", "page": 12}],
+      "confidence": 0.92
+    }
+  ],
+  "is_interrupted": false,
+  "interrupt_payload": null
+}
+```
+
+When `is_interrupted=true`, `interrupt_payload` carries the pending HITL prompt:
+```json
+{"reason": "Amount exceeds $100,000", "answer_preview": "Q4 capex was $4.8 billion..."}
+```
+
+**Errors**:
+- `403` — Thread belongs to a different user
+- `404` — Thread not found
+- `503` — Checkpoint store not initialized
+
+### DELETE `/threads/{thread_id}`
+
+Remove a thread from the checkpoint store (all three checkpoint tables). Owner or admin only.
+
+**Response** (204): empty body.
+
+**Errors**: same as GET, plus `403` if a non-admin tries to delete someone else's thread.
+
+## Human-in-the-Loop
+
+Used when `requires_approval=true`. Both endpoints require the same JWT used to start the chat.
+
+### POST `/hitl/approve`
+
+Resume a paused graph with approval. Returns the final response.
+
+**Request**:
+```json
+{"thread_id": "cc1840f8-db41-4394-9c40-ed2c97a998ac"}
+```
+
+**Response** (200):
+```json
+{
+  "status": "approved",
+  "thread_id": "cc1840f8-...",
+  "response": "...",
+  "sources": [...],
+  "confidence": 0.92
+}
+```
+
+**Errors**:
+- `503` — HITL not available (no PostgresSaver checkpointer configured)
+- `500` — Failed to resume graph (thread_id invalid or expired)
+
+### POST `/hitl/reject`
+
+Resume a paused graph with rejection. The graph routes to `blocked_response` and returns a canned denial message.
+
+**Request**:
+```json
+{"thread_id": "cc1840f8-..."}
+```
+
+**Response** (200):
+```json
+{
+  "status": "rejected",
+  "thread_id": "cc1840f8-...",
+  "response": "I'm unable to process this request..."
+}
+```
+
+## Ingestion
+
+### POST `/ingest`
+
+Ingest the contents of `data/sample/` into the active Qdrant collection. **Admin only.**
+
+**Response** (200):
+```json
+{"status": "success", "chunks_ingested": 47, "files_processed": 8}
+```
+
+**Errors**:
+- `403` — Non-admin caller
+- `404` — `data/sample/` is missing or empty
+
+### POST `/ingest/upload`
+
+Accept one or more uploaded PDFs (multipart) and ingest them. **Admin only.**
+
+**Request**: `multipart/form-data` with one or more `files` parts and optional form fields:
+- `doc_type` (default `"10k"`)
+- `confidentiality` (default `"public"`)
+
+```bash
+curl -X POST "${API}/ingest/upload" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -F "files=@10k_xyz_2023.pdf" \
+  -F "files=@10k_abc_2023.pdf" \
+  -F "doc_type=10k" -F "confidentiality=public"
+```
+
+**Response** (200):
+```json
+{
+  "status": "success",
+  "files_processed": 2,
+  "chunks_ingested": 47,
+  "files": [
+    {"filename": "10k_xyz_2023.pdf", "chunks": 28},
+    {"filename": "10k_abc_2023.pdf", "chunks": 19}
+  ],
+  "errors": []
+}
+```
+
+`status` is one of:
+- `"success"` — every file ingested cleanly
+- `"partial"` — some files succeeded, others surface in `errors[]`
+- `"failed"` — every file errored; `errors[]` lists details
+
+Saved PDFs land at `DOCUMENTS_ROOT` (default `data/sample/`) so the `/documents/{filename}` endpoint can later serve them for citation clickthrough.
+
+**Errors**:
+- `400` — No files in the upload
+- `403` — Non-admin caller
+
+## Documents
+
+### GET `/documents/{filename}`
+
+Stream a PDF for in-browser viewing. The filename must match a `source_file` recorded on Qdrant chunks; the caller's role permissions are checked against the document's `doc_type` and `confidentiality` payload before the file is served.
+
+Path-traversal is rejected: no `..`, separators, leading dots, or non-PDF extensions are permitted.
+
+**Response** (200): `application/pdf` stream with `Content-Disposition: inline; filename="..."`.
+
+**Errors**:
+- `400` — Invalid filename (path traversal, non-PDF extension)
+- `403` — Caller's role lacks access to this document's `doc_type` / `confidentiality`
+- `404` — Document isn't indexed (no Qdrant chunk for it) or the file isn't on disk
+
+## Admin
+
+All `/admin/*` endpoints require the `admin` role. Non-admin callers get 403.
+
+### GET `/admin/costs`
+
+Aggregate LLM spend from the self-hosted Langfuse instance over a configurable window. Grouped three ways: by user, by model, by trace name (`litellm-acompletion` vs `litellm-aembedding` vs `litellm-pass_through_endpoint`).
+
+**Query**: `days` (default 7, range 1–90)
+
+**Response** (200):
+```json
+{
+  "window_days": 7,
+  "start": "2026-10-12T...",
+  "end": "2026-10-19T...",
+  "total": {"calls": 11185, "cost_usd": 6.7466, "tokens": 6512912},
+  "by_user": [
+    {"key": "finance", "calls": 412, "cost_usd": 0.84, "tokens": 124880},
+    {"key": null, "calls": 9322, "cost_usd": 5.91, "tokens": 6201044}
+  ],
+  "by_model": [
+    {"key": "claude-sonnet-4-6", "calls": 377, "cost_usd": 5.21, "tokens": 613081}
+  ],
+  "by_trace_name": [
+    {"key": "litellm-acompletion", "calls": 750, "cost_usd": 6.30, "tokens": 1109654}
+  ]
+}
+```
+
+`by_user.key = null` rows are unattributed traces (scripts, eval runs, smokes) — anything that didn't pass through the FastAPI auth dependency.
+
+### GET `/admin/users`
+
+List configured users. Currently reads from the in-memory `DEV_USERS` dict in `src/api/routes/auth.py`; will swap to a DB-backed user store when that lands.
+
+**Response** (200):
+```json
+{
+  "users": [
+    {"username": "analyst", "name": "Test Analyst", "role": "analyst", "department": "Research"},
+    {"username": "finance", "name": "Test Finance", "role": "finance", "department": "FP&A"}
+  ]
+}
+```
+
+### GET `/admin/roles`
+
+List every RBAC role from the (DB-backed) `roles` table. The frontend admin panel renders this as a table users can edit.
+
+**Response** (200):
+```json
+{
+  "roles": [
+    {
+      "name": "analyst",
+      "allowed_doc_types": ["10k"],
+      "allowed_confidentiality": ["public"],
+      "max_results": 5,
+      "requires_hitl_above": null,
+      "is_system": true
+    }
+  ]
+}
+```
+
+`is_system=true` roles (the 5 built-ins seeded by the initial migration) cannot be deleted but can have their permissions edited.
+
+### POST `/admin/roles`
+
+Create a new role.
+
+**Request**:
+```json
+{
+  "name": "auditor",
+  "allowed_doc_types": ["10k", "invoice"],
+  "allowed_confidentiality": ["public", "internal"],
+  "max_results": 8,
+  "requires_hitl_above": 50000
+}
+```
+
+`name` must be unique. `is_system` is intentionally not accepted — system roles are only seeded by migrations.
+
+**Response** (201): the created role object (same shape as `GET /admin/roles[].roles[i]`).
+
+**Errors**:
+- `409` — A role with this name already exists
+
+### PATCH `/admin/roles/{name}`
+
+Partial update; only fields present in the body are changed.
+
+**Request** (e.g.):
+```json
+{"max_results": 20}
+```
+
+**Response** (200): the updated role.
+
+**Errors**:
+- `404` — Role doesn't exist
+
+### DELETE `/admin/roles/{name}`
+
+Hard-delete a role.
+
+**Response** (204): empty body.
+
+**Errors**:
+- `404` — Role doesn't exist
+- `409` — Role is `is_system=true` and protected
+
+### GET `/admin/audit`
+
+Recent-queries timeline derived from Langfuse traces. The frontend admin "Activity" tab consumes this directly.
+
+**Query**: `hours` (default 24, range 1–720), `limit` (default 100, range 1–500)
+
+**Response** (200):
+```json
+{
+  "window_hours": 24,
+  "start": "2026-10-18T...",
+  "end": "2026-10-19T...",
+  "total": 27,
+  "events": [
+    {
+      "trace_id": "79ecc74d-...",
+      "timestamp": "2026-10-19T11:30:00Z",
+      "user_id": "analyst",
+      "query": "What was Apple FY23 revenue?",
+      "model_hint": "acompletion",
+      "cost_usd": 0.0015,
+      "latency_ms": 1234
+    }
+  ]
+}
+```
+
+`user_id` is `null` for unattributed traces (scripts, eval runs — anything that didn't pass through the FastAPI auth dep). `query` is a 200-char preview of the most-recent `user`-role message in the trace's `input` blob; handles both OpenAI string-content and Anthropic content-block formats.
+
+**Known limitation**: LiteLLM's Langfuse callback creates one trace per LLM call, not per chat conversation. So the `query` field may show a mid-pipeline prompt (e.g. the grader's system+user input) rather than the original chat message for traces from internal LLM calls. Real `/chat` traffic from authenticated users produces traces whose top-level user message is the original query.
+
+**Errors**:
+- `502` — Langfuse query failed
+
+### GET `/admin/evaluations`
+
+Eval-snapshot time series derived from `tests/evaluation/eval_results/*.json` files. Frontend renders this on the "Evaluations" tab as the campaign trajectory chart.
+
+**Response** (200):
+```json
+{
+  "total": 13,
+  "snapshots": [
+    {
+      "filename": "eval_baseline.json",
+      "label": "baseline",
+      "mtime": 1715000000.5,
+      "num_samples": 150,
+      "pipeline_time_seconds": 4320,
+      "correctness": {"pass_rate": 0.307, "n_pass": 46, "n_samples": 150},
+      "ragas": {"faithfulness": 0.47, "answer_relevancy": 0.30, "context_precision": 0.55, "context_recall": 0.30},
+      "deepeval": {"faithfulness": 0.63, "contextual_precision": 0.51, "contextual_recall": 0.39},
+      "diagnostics": {"refusal_rate": 0.12, "pass_when_answered": 0.35, "slice_summary": {...}}
+    }
+  ]
+}
+```
+
+Snapshots are sorted by file mtime so the newest run is last. Old snapshots that embed metric dicts as JSON strings are auto-normalized to objects; missing fields surface as `null`.
+
+Files filtered out: `*.pipeline.json`, `*.ragas.json`, `*.deepeval.json`, `*.correctness.json`, `*.review.json`, `*_manifest.json` (per-sample drill-downs, not headline snapshots).
+
+## Model Context Protocol (MCP)
+
+FinRAG implements the official **Model Context Protocol (MCP)** specification over JSON-RPC 2.0. This allows external clients (Claude Desktop, custom investment LLMs, institutional agent runtimes) to invoke financial calculations and research tools with strict schema validation and RBAC enforcement.
+
+### POST `/v1/mcp`
+
+Official JSON-RPC 2.0 protocol endpoint. Supports `initialize`, `tools/list`, and `tools/call`.
+
+**Initialize Request**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "init-1",
+  "method": "initialize",
+  "params": {}
+}
+```
+
+**Initialize Response** (200):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "init-1",
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "tools": {"listChanged": false}
+    },
+    "serverInfo": {
+      "name": "finrag-investment-mcp",
+      "version": "0.3.5"
+    }
+  }
+}
+```
+
+**Tool Call Request**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "tools/call",
+  "params": {
+    "name": "calculate_valuation_multiples",
+    "arguments": {
+      "share_price": 180.0,
+      "earnings_per_share": 6.0,
+      "enterprise_value": 2800000.0,
+      "ebitda": 125000.0
+    }
+  }
+}
+```
+
+**Tool Call Response** (200):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"share_price\": 180.0,\n  \"pe_ratio\": 30.0,\n  \"ev_to_ebitda\": 22.4\n}"
+      }
+    ],
+    "isError": false,
+    "latency_ms": 1.45
+  }
+}
+```
+
+### GET `/v1/mcp/tools`
+
+REST discovery endpoint returning tool schemas available to the caller's role.
+
+**Response** (200):
+```json
+{
+  "tools": [
+    {
+      "name": "calculate_valuation_multiples",
+      "description": "Calculate equity valuation multiples (P/E, EV/EBITDA, P/B, FCF Yield).",
+      "inputSchema": {...}
+    },
+    {
+      "name": "calculate_profitability_metrics",
+      "description": "Calculate margin and return metrics (Gross/Operating/Net Margin, ROE, ROA, D/E).",
+      "inputSchema": {...}
+    },
+    {
+      "name": "calculate_growth_metrics",
+      "description": "Calculate YoY/QoQ revenue/EPS growth, bps margin expansion, and CAGR.",
+      "inputSchema": {...}
+    },
+    {
+      "name": "calculate_portfolio_risk_metrics",
+      "description": "Compute portfolio concentration (HHI), Top-N holding weights, and diversification checks.",
+      "inputSchema": {...}
+    },
+    {
+      "name": "calculate_portfolio_var_cvar",
+      "description": "Calculate Parametric and Historical VaR / CVaR (Expected Shortfall) at 95% and 99% levels across 1d, 10d, and 1y horizons. Requires portfolio_manager role.",
+      "inputSchema": {...}
+    },
+    {
+      "name": "optimize_portfolio_weights",
+      "description": "Ledoit-Wolf covariance shrinkage mean-variance optimizer for Max Sharpe or Min Volatility. Requires portfolio_manager role.",
+      "inputSchema": {...}
+    },
+    {
+      "name": "calculate_factor_exposures",
+      "description": "Calculate multi-factor risk attribution against Fama-French factor benchmarks (alpha, beta, factor sensitivities).",
+      "inputSchema": {...}
+    },
+    {
+      "name": "get_sec_filings",
+      "description": "Query authoritative 10-K, 10-Q, and 8-K filings from SEC EDGAR with automatic CIK resolution and XBRL fact extraction.",
+      "inputSchema": {...}
+    }
+  ],
+  "total": 8,
+  "caller_role": "portfolio_manager"
+}
+```
+
+### POST `/v1/mcp/tools/{tool_name}`
+
+Direct REST invocation endpoint for executing an MCP tool with audit logging and Model Risk Governance validation hooks.
+
+**Example: Portfolio VaR/CVaR Calculation**:
+```bash
+POST /v1/mcp/tools/calculate_portfolio_var_cvar
+Authorization: Bearer <jwt_with_portfolio_manager_role>
+Content-Type: application/json
+
+{
+  "arguments": {
+    "weights": [0.4, 0.3, 0.3],
+    "returns_matrix": [
+      [0.01, -0.02, 0.005],
+      [-0.015, 0.02, 0.01],
+      [0.008, 0.003, -0.012]
+    ],
+    "portfolio_value": 10000000.0,
+    "confidence_level": 0.99,
+    "horizon_days": 10
+  }
+}
+```
+
+**Response** (200):
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"parametric_var\": 452100.50,\n  \"historical_var\": 489300.00,\n  \"parametric_cvar\": 518400.20,\n  \"historical_cvar\": 542100.00,\n  \"confidence_level\": 0.99,\n  \"horizon_days\": 10,\n  \"portfolio_value\": 10000000.0,\n  \"mrg_validation\": {\n    \"status\": \"VALIDATED\",\n    \"sr_11_7_compliant\": true\n  }\n}"
+    }
+  ],
+  "isError": false,
+  "latency_ms": 2.15
+}
+```
+
+**Example: Ledoit-Wolf Portfolio Optimization**:
+```bash
+POST /v1/mcp/tools/optimize_portfolio_weights
+Authorization: Bearer <jwt_with_portfolio_manager_role>
+Content-Type: application/json
+
+{
+  "arguments": {
+    "expected_returns": [0.12, 0.09, 0.07],
+    "returns_matrix": [
+      [0.01, -0.02, 0.005],
+      [-0.015, 0.02, 0.01],
+      [0.008, 0.003, -0.012]
+    ],
+    "target_objective": "max_sharpe",
+    "risk_free_rate": 0.045,
+    "max_single_cap": 0.40
+  }
+}
+```
+
+## Health
+
+### GET `/health`
+
+**Response** (200):
+```json
+{"status": "ok"}
+```
+
+No auth required. Used by Docker/Kubernetes healthchecks.
+
+## Error Shape
+
+All error responses follow FastAPI's default:
+```json
+{"detail": "Human-readable error message"}
+```
+
+Common status codes:
+- `400` — Bad request shape (e.g., path traversal in filename)
+- `401` — Missing or invalid JWT
+- `403` — JWT valid but role lacks permission
+- `404` — Resource not found
+- `409` — Conflict (duplicate role, system-role deletion)
+- `422` — Request body validation failed (e.g., missing required field)
+- `500` — Unhandled server error (graph failure, LLM timeout)
+- `502` — Upstream service error (Langfuse query failed)
+- `503` — Service unavailable (PostgreSQL/Qdrant down, checkpoint store not init'd)
+
+## Rate Limits
+
+None enforced at the API layer in dev. The free Groq tier applies its own per-minute limits; the `LLMFactory` catches these and falls back to OpenAI automatically. LiteLLM (the proxy gateway when `LITELLM_URL` is set) layers its own `num_retries=2` and per-process budget caps from `litellm_config.yaml`.
+
+## CORS
+
+`allow_origins` comes from `settings.CORS_ORIGINS` (default `["*"]` for local dev). In production, the `@model_validator` in [settings.py](../src/config/settings.py) blocks startup if `ENVIRONMENT=production` and `CORS_ORIGINS` contains `"*"`.

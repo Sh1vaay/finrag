@@ -1,0 +1,127 @@
+# ==============================================================================
+# Version Control & Local Configs
+# ==============================================================================
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ==============================================================================
+# Environment & Cryptographic Secrets (Never Bake into Docker Image)
+# ==============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pkcs12
+*.pfx
+*.p12
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+credentials.json
+client_secret*.json
+service_account*.json
+token.json
+tokens.json
+
+# ==============================================================================
+# Local Data, Databases, & Volume Mounts
+# ==============================================================================
+data/raw/
+qdrant_data/
+pg_data/
+redis_data/
+langfuse_*
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/sec_cache/
+sec_edgar_cache.db*
+
+# ==============================================================================
+# Large Artifacts & Backups
+# ==============================================================================
+Docker-backup-*.raw
+dist/
+publish-assets/
+data/models/
+data/training/
+
+# ==============================================================================
+# Runtime & Compliance Logs (Mounted via Volumes)
+# ==============================================================================
+logs/
+cost_logs/
+*.log
+
+# ==============================================================================
+# Python Bytecode, Caches, & Virtual Environments
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+.venv/
+venv/
+env/
+.uv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# ==============================================================================
+# IDEs, Text Editors, & AI Agent State
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agents/
+.claude/
+CLAUDE.md
+.gemini/
+.cursor/
+.windsurf/
+.copilot/
+
+# ==============================================================================
+# OS Metadata
+# ==============================================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==============================================================================
+# Documentation, Scratch, & Tests (Not Required in Runtime Container)
+# ==============================================================================
+docs/
+tests/
+_course_materials/
+*.md
+!README.md
+Makefile
+Untitled.txt
+SESSION_HANDOFF.md
+IMPLEMENTATION_PLAN.md
+IMPROVEMENT_PLAN.md
+PROJECT_MASTER_DOCUMENT.md
+DEPLOYMENT_PLAN.md
+COMMANDS.txt
+CLEANUP_PLAN.md
+about-me/
