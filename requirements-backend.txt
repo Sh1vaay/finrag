@@ -39,7 +39,7 @@ qdrant-client>=1.13,<1.15
 fastembed>=0.4,<1.0
 
 # Reranker
-sentence-transformers>=3.0,<5.0
+sentence-transformers>=3.0,<6.0
 peft>=0.13,<2.0
 
 # Model Context Protocol & Financial Market Data
