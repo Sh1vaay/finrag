@@ -45,43 +45,46 @@ async def _fetch_observations(*, start_iso: str, end_iso: str, limit: int = 100)
     page is short. The endpoint is anonymous-bearer-auth via basic auth on
     the project public/secret key pair.
     """
-    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
-        logger.info("Langfuse credentials not configured; returning empty generation list")
-        return []
-
     auth = (settings.LANGFUSE_PUBLIC_KEY, settings.LANGFUSE_SECRET_KEY)
     url = f"{settings.LANGFUSE_HOST.rstrip('/')}/api/public/observations"
     out: list[dict] = []
     page = 1
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        while True:
-            resp = await client.get(
-                url,
-                auth=auth,
-                params={
-                    "type": "GENERATION",
-                    "fromStartTime": start_iso,
-                    "toStartTime": end_iso,
-                    "limit": limit,
-                    "page": page,
-                },
-            )
-            if resp.status_code != 200:
-                logger.error("Langfuse query failed: %s %s", resp.status_code, resp.text[:300])
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Failed to query Langfuse for cost data",
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            while True:
+                resp = await client.get(
+                    url,
+                    auth=auth,
+                    params={
+                        "type": "GENERATION",
+                        "fromStartTime": start_iso,
+                        "toStartTime": end_iso,
+                        "limit": limit,
+                        "page": page,
+                    },
                 )
-            payload = resp.json()
-            page_data = payload.get("data", [])
-            out.extend(page_data)
-            if len(page_data) < limit:
-                break
-            page += 1
-            if page > 100:
-                # Safety belt — 10k generations is plenty for an admin view
-                logger.warning("Aborting Langfuse pagination at page 100")
-                break
+                if resp.status_code != 200:
+                    logger.error("Langfuse query failed: %s %s", resp.status_code, resp.text[:300])
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Failed to query Langfuse for cost data",
+                    )
+                payload = resp.json()
+                page_data = payload.get("data", [])
+                out.extend(page_data)
+                if len(page_data) < limit:
+                    break
+                page += 1
+                if page > 100:
+                    # Safety belt — 10k generations is plenty for an admin view
+                    logger.warning("Aborting Langfuse pagination at page 100")
+                    break
+    except httpx.HTTPError as e:
+        logger.error("Langfuse observations query failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to query Langfuse for cost data",
+        )
     return out
 
 
@@ -392,7 +395,9 @@ async def admin_evaluations(user: User = Depends(get_current_user)):
     """
     _require_admin(user)
 
-    root = _PROJECT_ROOT / "tests" / "evaluation" / "eval_results"
+    root = Path("tests/evaluation/eval_results")
+    if not root.exists():
+        root = _PROJECT_ROOT / "tests" / "evaluation" / "eval_results"
     if not root.exists():
         return {"snapshots": [], "total": 0}
 

@@ -48,7 +48,10 @@ class TestMarketData(unittest.TestCase):
         mock_yf = MagicMock()
         mock_yf.Ticker.return_value = mock_ticker
 
-        with patch.dict("sys.modules", {"yfinance": mock_yf}):
+        with (
+            patch.dict("os.environ", {"MARKET_DATA_PROVIDER": "yfinance"}),
+            patch.dict("sys.modules", {"yfinance": mock_yf}),
+        ):
             res = get_market_data("AAPL")
             self.assertEqual(res["ticker"], "AAPL")
             self.assertEqual(res["company_name"], "Apple Inc.")

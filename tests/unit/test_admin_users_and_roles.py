@@ -44,7 +44,7 @@ def test_users_list_returns_dev_users(client):
     assert resp.status_code == 200
     users = resp.json()["users"]
     usernames = {u["username"] for u in users}
-    assert {"analyst", "finance", "hr", "clevel", "admin"} == usernames
+    assert {"analyst", "pm", "compliance", "admin", "finance", "hr", "clevel"} == usernames
     for u in users:
         assert "name" in u and "role" in u and "department" in u
 

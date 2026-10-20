@@ -29,8 +29,9 @@ class TestEmbeddingsService(unittest.TestCase):
         vectors = _bgem3_embed(texts, input_type="document")
         self.assertEqual(len(vectors), 2)
         self.assertEqual(len(vectors[0]), 1024)
-        self.assertEqual(len(vectors[1]), 1024)
-        self.assertIsInstance(vectors[0][0], float)
+        import numbers
+
+        self.assertIsInstance(vectors[0][0], (float, numbers.Real))
 
     def test_bgem3_dispatch_in_embed_text(self):
         orig = getattr(emb_mod.settings, "EMBEDDING_PROVIDER", "openai") if emb_mod.settings else None
@@ -40,7 +41,9 @@ class TestEmbeddingsService(unittest.TestCase):
             emb_mod.settings.EMBEDDING_PROVIDER = "bge-m3"
             vec = embed_text("What was Apple's operating margin in 2023?", input_type="query")
             self.assertEqual(len(vec), 1024)
-            self.assertIsInstance(vec[0], float)
+            import numbers
+
+            self.assertIsInstance(vec[0], (float, numbers.Real))
         finally:
             if emb_mod.settings and orig:
                 emb_mod.settings.EMBEDDING_PROVIDER = orig

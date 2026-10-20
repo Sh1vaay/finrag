@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     LANGCHAIN_API_KEY: str = ""
 
     # --- Auth ---
-    JWT_SECRET: str = "dev-secret-change-in-production"
+    JWT_SECRET: str = "dev-secret-change-in-production-32b"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_HOURS: int = 24
 
@@ -213,7 +213,7 @@ class Settings(BaseSettings):
     def validate_production_settings(self):
         """Enforce safety checks for production and staging environments."""
         if self.ENVIRONMENT in ("production", "staging"):
-            if self.JWT_SECRET == "dev-secret-change-in-production":
+            if self.JWT_SECRET.startswith("dev-secret-change-in-production"):
                 raise ValueError(f"JWT_SECRET must be changed from default in {self.ENVIRONMENT}!")
             if self.POSTGRES_PASSWORD == "devpassword":
                 raise ValueError(f"POSTGRES_PASSWORD must be changed from default in {self.ENVIRONMENT}!")

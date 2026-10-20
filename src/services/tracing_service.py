@@ -35,7 +35,7 @@ def init_tracing() -> None:
     if _is_tracing_initialized:
         return
 
-    backend = (getattr(settings, "TRACING_BACKEND", None) or os.environ.get("TRACING_BACKEND", "phoenix")).lower()
+    backend = (os.environ.get("TRACING_BACKEND") or getattr(settings, "TRACING_BACKEND", "phoenix")).lower()
     logger.info("Initializing tracing backend: %s", backend)
 
     if backend == "phoenix":
@@ -43,10 +43,13 @@ def init_tracing() -> None:
     elif backend == "langfuse":
         host = getattr(settings, "LANGFUSE_HOST", "http://langfuse-web:3000")
         logger.info("Langfuse tracing backend active (host: %s)", host)
+        _tracer = None
     elif backend in ("none", "disabled", "off"):
         logger.info("Tracing is disabled (TRACING_BACKEND=%s)", backend)
+        _tracer = None
     else:
         logger.warning("Unknown TRACING_BACKEND '%s'; defaulting to none", backend)
+        _tracer = None
 
     _is_tracing_initialized = True
 

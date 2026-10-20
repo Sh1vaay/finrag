@@ -68,10 +68,10 @@ def _bgem3_embed(texts: list[str], input_type: str = "document") -> list[list[fl
     if embedder is not None:
         try:
             if hasattr(embedder, "embed"):
-                return [list(vec) for vec in embedder.embed(texts)]
+                return [[float(x) for x in vec] for vec in embedder.embed(texts)]
             elif hasattr(embedder, "encode"):
                 embeddings = embedder.encode(texts, normalize_embeddings=True)
-                return [list(vec) for vec in embeddings]
+                return [[float(x) for x in vec] for vec in embeddings]
         except Exception as e:
             logger.warning("BGE-M3 inference error: %s; falling back to deterministic vectors", e)
 
