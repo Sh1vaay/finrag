@@ -3,6 +3,7 @@
 Validates TokenResponse with user_id/name/department for the
 frontend handoff, and verifies GET /auth/me contract.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,6 +19,7 @@ def client():
 
 
 # ── POST /auth/login ──────────────────────────────────────────────────────
+
 
 def test_login_returns_full_user_tuple(client):
     """The frontend renders the header from this response — every field
@@ -44,6 +46,7 @@ def test_login_rejects_unknown_user(client):
 
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────
+
 
 def _token(role: str = "research_analyst", user_id: str = "analyst", department: str = "Fundamental Equities") -> str:
     return create_token(user_id=user_id, name="Senior Equity Analyst", role=role, department=department)

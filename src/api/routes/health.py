@@ -25,6 +25,7 @@ async def warm():
     Total wall time: 10-30s on M1, ~5-10s on M4.
     """
     import time
+
     timings_ms: dict[str, int] = {}
     loaded: dict[str, str] = {}
 
@@ -43,10 +44,12 @@ async def warm():
     # 1. BGE reranker — actual dummy forward pass (forces weight load + JIT).
     def _warm_reranker():
         from src.services.reranker_service import get_reranker
+
         rk = get_reranker()
         # Score a dummy (query, chunk) pair to actually run the cross-encoder.
         rk.predict([("warmup query", "warmup passage")])
         return type(rk).__name__
+
     res = _timed("reranker", _warm_reranker)
     if res is not None:
         loaded["reranker"] = res
@@ -54,8 +57,10 @@ async def warm():
     # 2. Sparse BM25 embedder — load + embed a token (FastEmbed lazy loads).
     def _warm_sparse():
         from src.services.vector_store import compute_sparse_vectors
+
         compute_sparse_vectors(["warmup"])
         return "SparseTextEmbedding"
+
     res = _timed("sparse_embedder", _warm_sparse)
     if res is not None:
         loaded["sparse_embedder"] = res
@@ -63,8 +68,10 @@ async def warm():
     # 3. Dense embedder — one HTTP roundtrip to OpenAI/Voyage so TLS pool is up.
     def _warm_dense():
         from src.services.embeddings import embed_text
+
         v = embed_text("warmup", input_type="query")
         return f"dim={len(v)}"
+
     res = _timed("dense_embedder", _warm_dense)
     if res is not None:
         loaded["dense_embedder"] = res
@@ -74,8 +81,10 @@ async def warm():
     # query. Almost certainly this model loading. Force it here instead.
     def _warm_guardrails():
         from src.services.guardrails_service import check_injection_llm_guard
+
         check_injection_llm_guard("warmup query")
         return "LLMGuard"
+
     res = _timed("guardrails", _warm_guardrails)
     if res is not None:
         loaded["guardrails"] = res
@@ -88,9 +97,11 @@ async def warm():
     # failed to load" wizard error instead of silent per-query 130s waste.
     def _warm_pii():
         from src.services.guardrails_service import _get_presidio_engines, detect_pii
+
         detect_pii("warmup")
         analyzer, _ = _get_presidio_engines()
         return "Presidio" if analyzer is not None else "presidio-unavailable"
+
     res = _timed("pii_detection", _warm_pii)
     if res is not None:
         loaded["pii_detection"] = res
@@ -98,10 +109,13 @@ async def warm():
     # 5. Entity-extractor LLM — one tiny invoke to warm the HTTP pool.
     def _warm_entity():
         from langchain_core.messages import HumanMessage
+
         from src.services.llm_factory import LLMFactory
+
         llm = LLMFactory.get_router_llm()  # entity_extractor uses same provider
         llm.invoke([HumanMessage(content="ok")])
         return type(llm).__name__
+
     res = _timed("entity_llm", _warm_entity)
     if res is not None:
         loaded["entity_llm"] = res
@@ -109,10 +123,13 @@ async def warm():
     # 6. Grader LLM (might be Groq/OpenAI depending on USE_GROQ_FAST_PATH).
     def _warm_grader():
         from langchain_core.messages import HumanMessage
+
         from src.services.llm_factory import LLMFactory
+
         llm = LLMFactory.get_grader_llm()
         llm.invoke([HumanMessage(content="ok")])
         return type(llm).__name__
+
     res = _timed("grader_llm", _warm_grader)
     if res is not None:
         loaded["grader_llm"] = res
@@ -120,10 +137,13 @@ async def warm():
     # 7. Generator LLM (Claude Sonnet). Tiny prompt — pennies of cost.
     def _warm_generator():
         from langchain_core.messages import HumanMessage
+
         from src.services.llm_factory import LLMFactory
+
         llm = LLMFactory.get_generator_llm()
         llm.invoke([HumanMessage(content="ok")])
         return type(llm).__name__
+
     res = _timed("generator_llm", _warm_generator)
     if res is not None:
         loaded["generator_llm"] = res

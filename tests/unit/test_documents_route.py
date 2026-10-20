@@ -3,9 +3,9 @@
 Path-traversal guard, RBAC, and 404 paths are stubbed via patches on
 the Qdrant lookup helper so the test runs without a live Qdrant.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest

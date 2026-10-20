@@ -77,12 +77,15 @@ def retrieval_node(state: RAGState) -> dict:
 
         from src.services.tracing_service import trace_span
 
-        with trace_span("retrieval.hybrid", {
-            "query": query[:120],
-            "company": target_company or "none",
-            "fiscal_year": target_fiscal_year or 0,
-            "top_k": settings.RETRIEVAL_TOP_K,
-        }):
+        with trace_span(
+            "retrieval.hybrid",
+            {
+                "query": query[:120],
+                "company": target_company or "none",
+                "fiscal_year": target_fiscal_year or 0,
+                "top_k": settings.RETRIEVAL_TOP_K,
+            },
+        ):
             chunks = _multi_path_search(
                 client=client,
                 query=query,
@@ -137,12 +140,21 @@ def retrieval_node(state: RAGState) -> dict:
         filter_info = f"company={target_company},year={target_fiscal_year}" if target_company else "no-company-filter"
         fallback_info = f" [FALLBACK from {initial_count}]" if retrieval_fallback_used else ""
         hyde_info = " [multi-HyDE]" if settings.ENABLE_MULTI_HYDE else ""
-        logger.info(f"Retrieved {len(chunks)} hybrid candidates ({filter_info}){fallback_info}{hyde_info} for: {query[:60]}...")
+        logger.info(
+            f"Retrieved {len(chunks)} hybrid candidates ({filter_info}){fallback_info}{hyde_info} for: {query[:60]}..."
+        )
         from src.services.event_log import emit
-        emit("retrieval", target_company=target_company, target_fiscal_year=target_fiscal_year,
-             n_candidates=len(chunks), initial_count=initial_count,
-             fallback_used=retrieval_fallback_used, multi_hyde=bool(settings.ENABLE_MULTI_HYDE),
-             query_preview=query[:120])
+
+        emit(
+            "retrieval",
+            target_company=target_company,
+            target_fiscal_year=target_fiscal_year,
+            n_candidates=len(chunks),
+            initial_count=initial_count,
+            fallback_used=retrieval_fallback_used,
+            multi_hyde=bool(settings.ENABLE_MULTI_HYDE),
+            query_preview=query[:120],
+        )
         return {
             "retrieved_chunks": chunks,
             "retrieval_fallback_used": retrieval_fallback_used,

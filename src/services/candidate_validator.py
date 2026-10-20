@@ -63,4 +63,3 @@ def validate_candidates(
         )
 
     return keep, diagnostics
-

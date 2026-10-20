@@ -10,10 +10,10 @@ from src.graph.nodes.entity_extractor import (
     entity_extractor_node,
 )
 
-
 # ---------------------------------------------------------------------------
 # Dictionary match — single-entity queries (fast path, no LLM)
 # ---------------------------------------------------------------------------
+
 
 def test_dict_match_apple_by_name():
     slug, ambiguous = _dictionary_match("What was Apple's revenue in 2023?")
@@ -47,6 +47,7 @@ def test_dict_match_word_boundary_prevents_substring_match():
 # ---------------------------------------------------------------------------
 # Dictionary match — ambiguous cases (LLM fallback triggered)
 # ---------------------------------------------------------------------------
+
 
 def test_dict_match_multiple_companies_is_ambiguous():
     slug, ambiguous = _dictionary_match("Compare Apple and Microsoft revenue")
@@ -83,6 +84,7 @@ def test_dict_match_what_about_with_explicit_company_is_not_ambiguous():
 # Dictionary match — no company mentioned (valid generic query, no filter)
 # ---------------------------------------------------------------------------
 
+
 def test_dict_match_generic_query_returns_none_non_ambiguous():
     """A query with no companies and no pronoun hints → no filter needed."""
     slug, ambiguous = _dictionary_match("What is the maximum daily travel expense?")
@@ -93,6 +95,7 @@ def test_dict_match_generic_query_returns_none_non_ambiguous():
 # ---------------------------------------------------------------------------
 # Year extraction
 # ---------------------------------------------------------------------------
+
 
 def test_extract_year_finds_2023():
     assert _extract_year("Apple revenue in fiscal year 2023") == 2023
@@ -120,6 +123,7 @@ def test_extract_year_picks_latest():
 # ---------------------------------------------------------------------------
 # Node integration (deterministic path — no LLM call)
 # ---------------------------------------------------------------------------
+
 
 def test_node_extracts_apple_and_year_without_llm():
     state = {

@@ -71,6 +71,7 @@ ROLE_PERMISSIONS: dict[str, dict] = {
 def get_permissions(role: str) -> dict:
     """Return the RBAC permissions for a role (DB-first with static fallback)."""
     from src.services.roles_service import get_permissions as _db_first
+
     return _db_first(role)
 
 
@@ -103,6 +104,7 @@ def can_approve(approver_role: str, requester_role: str) -> bool:
 def approvers_for(requester_role: str) -> list[str]:
     """List of role names authorized to approve `requester_role`'s queries."""
     return sorted(
-        role for role, allowed in CAN_APPROVE_FOR.items()
+        role
+        for role, allowed in CAN_APPROVE_FOR.items()
         if role != requester_role and ("*" in allowed or requester_role in allowed)
     )

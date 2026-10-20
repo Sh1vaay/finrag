@@ -112,10 +112,7 @@ def _extract_recent_xbrl_facts(gaap: dict[str, Any], concept: str) -> tuple[floa
         return None, None
 
     # Filter for annual 10-K filings with form == "10-K"
-    annual_items = [
-        item for item in concept_data
-        if item.get("form") == "10-K" and "fy" in item and "val" in item
-    ]
+    annual_items = [item for item in concept_data if item.get("form") == "10-K" and "fy" in item and "val" in item]
     if not annual_items:
         annual_items = [item for item in concept_data if "val" in item]
 
@@ -152,7 +149,9 @@ def fetch_sec_company_facts(ticker: str) -> dict[str, Any] | None:
         # Extract core financial line items
         rev_curr, rev_prior = _extract_recent_xbrl_facts(gaap, "Revenues")
         if rev_curr is None:
-            rev_curr, rev_prior = _extract_recent_xbrl_facts(gaap, "RevenueFromContractWithCustomerExcludingAssessedTax")
+            rev_curr, rev_prior = _extract_recent_xbrl_facts(
+                gaap, "RevenueFromContractWithCustomerExcludingAssessedTax"
+            )
         if rev_curr is None:
             rev_curr, rev_prior = _extract_recent_xbrl_facts(gaap, "SalesRevenueNet")
 
@@ -234,13 +233,15 @@ def fetch_recent_filings(ticker: str, form_type: str = "10-K") -> list[dict[str,
             if f.upper() == form_type.upper():
                 acc = accessions[i].replace("-", "")
                 doc = doc_names[i]
-                results.append({
-                    "ticker": ticker.upper(),
-                    "form": f,
-                    "filing_date": filing_dates[i],
-                    "accession_number": accessions[i],
-                    "document_url": f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc}/{doc}",
-                })
+                results.append(
+                    {
+                        "ticker": ticker.upper(),
+                        "form": f,
+                        "filing_date": filing_dates[i],
+                        "accession_number": accessions[i],
+                        "document_url": f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc}/{doc}",
+                    }
+                )
                 if len(results) >= 5:
                     break
         return results

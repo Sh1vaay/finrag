@@ -22,4 +22,3 @@ def test_validator_filters_entity_year_and_relaxes_min_keep():
 if __name__ == "__main__":
     test_validator_filters_entity_year_and_relaxes_min_keep()
     print("Candidate validator unit tests passed!")
-

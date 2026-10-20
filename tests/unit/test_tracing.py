@@ -4,8 +4,8 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from src.services.tracing_service import init_tracing, trace_span, get_tracer
 import src.services.tracing_service as tracing_mod
+from src.services.tracing_service import get_tracer, init_tracing, trace_span
 
 
 class TestTracingService(unittest.TestCase):

@@ -7,8 +7,10 @@ try:
     from langgraph.types import interrupt
 except ImportError:
     RunnableConfig = Any  # type: ignore
+
     def interrupt(data):  # type: ignore
         return {"decision": "approved"}
+
 
 from src.config.rbac_config import get_permissions
 from src.models.state import RAGState
@@ -36,7 +38,16 @@ def _extract_max_amount(text: str) -> float:
     for match in matches:
         cleaned = match.replace("$", "").replace(",", "").strip()
         multiplier = 1.0
-        for suffix, mult in [("trillion", 1e12), ("billion", 1e9), ("million", 1e6), ("thousand", 1e3), ("T", 1e12), ("B", 1e9), ("M", 1e6), ("k", 1e3)]:
+        for suffix, mult in [
+            ("trillion", 1e12),
+            ("billion", 1e9),
+            ("million", 1e6),
+            ("thousand", 1e3),
+            ("T", 1e12),
+            ("B", 1e9),
+            ("M", 1e6),
+            ("k", 1e3),
+        ]:
             if suffix in cleaned:
                 cleaned = cleaned.replace(suffix, "").strip()
                 multiplier = mult
@@ -55,6 +66,7 @@ def _get_compliance_patterns() -> list[re.Pattern]:
     """Retrieve compliance restricted patterns dynamically from settings."""
     try:
         from src.config.settings import settings
+
         keywords = getattr(settings, "COMPLIANCE_RESTRICTED_KEYWORDS", None)
     except Exception:
         keywords = None
@@ -114,7 +126,9 @@ def hitl_gate_node(state: RAGState, config: RunnableConfig | None = None) -> dic
 
     reason_parts = []
     if triggered_by_amount:
-        reason_parts.append(f"Allocation references ${max_amount:,.0f} (exceeds ${threshold:,} threshold for '{user_role}')")
+        reason_parts.append(
+            f"Allocation references ${max_amount:,.0f} (exceeds ${threshold:,} threshold for '{user_role}')"
+        )
     if triggered_by_compliance:
         reason_parts.append(f"Compliance flag detected: {', '.join(set(compliance_flags))}")
     gate_reason = " | ".join(reason_parts)
@@ -128,15 +142,18 @@ def hitl_gate_node(state: RAGState, config: RunnableConfig | None = None) -> dic
         return {"requires_human_approval": True, "human_decision": "approved"}
 
     from datetime import datetime, timezone
+
     submitted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    decision = interrupt({
-        "type": "compliance_approval_required" if triggered_by_compliance else "approval_required",
-        "reason": gate_reason,
-        "max_amount": max_amount if triggered_by_amount else None,
-        "compliance_flags": list(set(compliance_flags)),
-        "threshold": threshold,
-        "submitted_at": submitted_at,
-    })
+    decision = interrupt(
+        {
+            "type": "compliance_approval_required" if triggered_by_compliance else "approval_required",
+            "reason": gate_reason,
+            "max_amount": max_amount if triggered_by_amount else None,
+            "compliance_flags": list(set(compliance_flags)),
+            "threshold": threshold,
+            "submitted_at": submitted_at,
+        }
+    )
 
     # Execution resumes here after the human responds. NOTE: this whole
     # function runs again from the top on resume, so the local

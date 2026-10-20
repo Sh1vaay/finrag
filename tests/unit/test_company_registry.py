@@ -10,4 +10,3 @@ def test_canonical_company_slug_basic_aliases():
 if __name__ == "__main__":
     test_canonical_company_slug_basic_aliases()
     print("Company registry unit tests passed!")
-

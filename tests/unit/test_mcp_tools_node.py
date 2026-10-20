@@ -18,20 +18,23 @@ from unittest.mock import MagicMock
 # Ensure root directory is on pythonpath
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+
 class _FakeBaseModel:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
 
 class _DynamicMockModule(types.ModuleType):
     def __getattr__(self, name):
         if name in ("BaseModel", "BaseSettings"):
             return _FakeBaseModel
         if name == "model_validator":
-            return lambda *args, **kwargs: (lambda fn: fn)
+            return lambda *args, **kwargs: lambda fn: fn
         if name == "Field":
             return lambda *args, **kwargs: kwargs.get("default")
         return MagicMock()
+
 
 class _DynamicMockLoader:
     def __init__(self, name):
@@ -45,11 +48,13 @@ class _DynamicMockLoader:
     def exec_module(self, module):
         pass
 
+
 class _DynamicMockFinder:
     def find_spec(self, fullname, path, target=None):
         if any(fullname.startswith(pkg) for pkg in ["langchain", "langgraph", "pydantic"]):
             return ModuleSpec(fullname, _DynamicMockLoader(fullname), is_package=True)
         return None
+
 
 sys.meta_path.insert(0, _DynamicMockFinder())
 

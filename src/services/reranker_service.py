@@ -53,9 +53,7 @@ class _FtReranker:
 
         self._torch = torch
         self.device = torch.device(device)
-        logger.info(
-            f"Loading FT reranker: base={base_model}, adapter={adapter_path}, device={device}"
-        )
+        logger.info(f"Loading FT reranker: base={base_model}, adapter={adapter_path}, device={device}")
         self.tokenizer = AutoTokenizer.from_pretrained(base_model)
         base = AutoModelForSequenceClassification.from_pretrained(base_model, num_labels=1)
         self.model = PeftModel.from_pretrained(base, adapter_path).to(self.device)
@@ -70,8 +68,11 @@ class _FtReranker:
             queries = [q for q, _ in batch]
             chunks = [c for _, c in batch]
             enc = self.tokenizer(
-                queries, chunks,
-                padding=True, truncation=True, max_length=512,
+                queries,
+                chunks,
+                padding=True,
+                truncation=True,
+                max_length=512,
                 return_tensors="pt",
             ).to(self.device)
             with torch.no_grad():
@@ -146,9 +147,6 @@ def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
             key = cache_prefix + _hash_key(model_id, query, chunk_text)
             _client.set(key, score_f)
 
-    scored = [
-        {**chunk, "rerank_score": cached_scores[i]}
-        for i, chunk in enumerate(chunks)
-    ]
+    scored = [{**chunk, "rerank_score": cached_scores[i]} for i, chunk in enumerate(chunks)]
     scored.sort(key=lambda c: c["rerank_score"], reverse=True)
     return scored[:top_k]

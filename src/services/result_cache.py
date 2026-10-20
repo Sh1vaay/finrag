@@ -28,6 +28,7 @@ Failure modes already exercised by the unit tests:
   - Redis returns malformed JSON → fall through, log warning
   - Network timeout → 500ms cap, then fall through
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -91,9 +92,7 @@ class _CacheClient:
             )
             # Smoke ping — a dead Redis will surface here, not on first use.
             self._client.ping()
-            logger.info(
-                "Result cache connected to redis://%s:%s db=%s", host, port, db
-            )
+            logger.info("Result cache connected to redis://%s:%s db=%s", host, port, db)
         except Exception as e:
             logger.warning(
                 "Result cache disabled — could not connect to Redis: %s",
@@ -171,9 +170,7 @@ def get_or_compute(
     on a true miss.
     """
     if cache_name not in _KEY_PREFIX:
-        raise KeyError(
-            f"Unknown cache_name {cache_name!r}; expected one of {list(_KEY_PREFIX)}"
-        )
+        raise KeyError(f"Unknown cache_name {cache_name!r}; expected one of {list(_KEY_PREFIX)}")
     key = _KEY_PREFIX[cache_name] + _hash_key(*key_parts)
     cached = _client.get(key)
     if cached is not None:

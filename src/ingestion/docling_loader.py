@@ -84,10 +84,12 @@ def _extract_pages_pypdf(file_path: Path) -> list[dict]:
         reader = PdfReader(str(file_path))
         pages = []
         for page_no, page in enumerate(reader.pages, start=1):
-            pages.append({
-                "page_number": page_no,
-                "text": page.extract_text() or "",
-            })
+            pages.append(
+                {
+                    "page_number": page_no,
+                    "text": page.extract_text() or "",
+                }
+            )
         return pages
     except Exception as e:
         logger.error(f"pypdf extraction failed for {file_path}: {e}")

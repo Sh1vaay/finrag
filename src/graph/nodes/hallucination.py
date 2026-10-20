@@ -46,13 +46,15 @@ def _build_system_message(llm) -> SystemMessage:
     Marker is correct and future-proof but no-op for stand-alone graph runs.
     """
     if isinstance(llm, ChatAnthropic):
-        return SystemMessage(content=[
-            {
-                "type": "text",
-                "text": HALLUCINATION_CHECK_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ])
+        return SystemMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": HALLUCINATION_CHECK_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        )
     return SystemMessage(content=HALLUCINATION_CHECK_SYSTEM_PROMPT)
 
 
@@ -76,25 +78,29 @@ def hallucination_checker_node(state: RAGState) -> dict:
 
     # Route to Opus 4.7 when the answer is HITL-eligible; otherwise Sonnet 4.6
     high_stakes = _is_high_stakes(answer, user_role)
-    llm = (
-        LLMFactory.get_high_stakes_hallucination_llm()
-        if high_stakes
-        else LLMFactory.get_hallucination_llm()
-    )
+    llm = LLMFactory.get_high_stakes_hallucination_llm() if high_stakes else LLMFactory.get_hallucination_llm()
     if high_stakes:
         logger.info("Hallucination check: high-stakes path (Opus 4.7)")
 
     try:
         structured_llm = llm.with_structured_output(HallucinationCheck)
-        result: HallucinationCheck = structured_llm.invoke([
-            _build_system_message(llm),
-            HumanMessage(content=user_prompt),
-        ])
+        result: HallucinationCheck = structured_llm.invoke(
+            [
+                _build_system_message(llm),
+                HumanMessage(content=user_prompt),
+            ]
+        )
 
         logger.info(f"Hallucination check: grounded={result.grounded}, score={result.score:.2f}")
         from src.services.event_log import emit
-        emit("hallucination", grounded=result.grounded, score=result.score,
-             retry_count=retry_count, will_retry=not result.grounded)
+
+        emit(
+            "hallucination",
+            grounded=result.grounded,
+            score=result.score,
+            retry_count=retry_count,
+            will_retry=not result.grounded,
+        )
 
         is_grounded = result.grounded
         return {

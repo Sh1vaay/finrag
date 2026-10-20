@@ -22,12 +22,14 @@ CLI:
     python -m src.services.cost_tracker --tail 20             # last N raw records
     python -m src.services.cost_tracker --budget 75           # exits 1 if total spend exceeds cap
 """
+
 from __future__ import annotations
 
 import argparse
 import contextlib
 import datetime as dt
 import json
+import logging
 import os
 import sys
 import threading
@@ -39,7 +41,6 @@ from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
-
 
 # Pricing in USD per 1M tokens. Source: provider pricing pages, ~2026-10.
 # NOTE: LLM pricing changes frequently. Update this table when providers adjust rates.
@@ -185,9 +186,7 @@ class CostCallbackHandler(BaseCallbackHandler):
 
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any) -> None:
         with self._lock:
-            start_time, start_model, metadata = self._starts.pop(
-                run_id, (time.monotonic(), None, {})
-            )
+            start_time, start_model, metadata = self._starts.pop(run_id, (time.monotonic(), None, {}))
         duration = time.monotonic() - start_time
 
         try:
@@ -309,9 +308,7 @@ class RequestScopedCostHandler(BaseCallbackHandler):
 
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any) -> None:
         with self._lock:
-            start_time, start_model, metadata = self._starts.pop(
-                run_id, (time.monotonic(), None, {})
-            )
+            start_time, start_model, metadata = self._starts.pop(run_id, (time.monotonic(), None, {}))
         duration = time.monotonic() - start_time
 
         try:
@@ -326,13 +323,15 @@ class RequestScopedCostHandler(BaseCallbackHandler):
                 cache_write_tokens=usage["cache_write_tokens"],
             )
             with self._lock:
-                self._records.append({
-                    "model": model,
-                    "duration_s": round(duration, 3),
-                    "cost_usd": cost,
-                    "node": (metadata or {}).get("node"),
-                    **usage,
-                })
+                self._records.append(
+                    {
+                        "model": model,
+                        "duration_s": round(duration, 3),
+                        "cost_usd": cost,
+                        "node": (metadata or {}).get("node"),
+                        **usage,
+                    }
+                )
         except Exception:  # noqa: BLE001
             pass
 
@@ -497,7 +496,7 @@ def _cli() -> int:
             print("No log yet.")
             return 0
         with log_path.open(encoding="utf-8") as f:
-            lines = f.readlines()[-args.tail:]
+            lines = f.readlines()[-args.tail :]
         for line in lines:
             print(line.rstrip())
         return 0

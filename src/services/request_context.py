@@ -10,6 +10,7 @@ Implemented as a `ContextVar` so the value is correctly scoped to the
 async task handling each request, with no risk of bleeding between
 concurrent requests on the same event loop.
 """
+
 from contextvars import ContextVar
 
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)

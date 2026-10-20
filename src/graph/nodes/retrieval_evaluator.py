@@ -33,10 +33,7 @@ def retrieval_evaluator_node(state: RAGState) -> dict:
 
     llm = LLMFactory.get_router_llm()
     structured = llm.with_structured_output(RetrievalEvalDecision)
-    chunk_preview = "\n\n".join(
-        f"[{i}] {c.get('content', '')[:500]}"
-        for i, c in enumerate(chunks[:5], start=1)
-    )
+    chunk_preview = "\n\n".join(f"[{i}] {c.get('content', '')[:500]}" for i, c in enumerate(chunks[:5], start=1))
     prompt = RETRIEVAL_EVALUATOR_PROMPT.format(query=query, chunks=chunk_preview)
     try:
         result: RetrievalEvalDecision = structured.invoke([HumanMessage(content=prompt)])
@@ -51,4 +48,3 @@ def retrieval_evaluator_node(state: RAGState) -> dict:
     except Exception as e:
         logger.warning(f"Retrieval evaluator failed; defaulting to accept: {e}")
         return {"retrieval_evaluator_decision": "accept", "retrieval_evaluator_confidence": 0.5}
-

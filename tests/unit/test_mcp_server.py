@@ -7,8 +7,10 @@ and market data tools under MCP SDK v2 standards.
 try:
     import pytest
 except ImportError:
+
     class _MockPytest:
         pass
+
     pytest = _MockPytest()
 
 import json
@@ -18,7 +20,7 @@ from pathlib import Path
 # Ensure root directory is on pythonpath
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.tools.mcp_server import handle_mcp_jsonrpc, mcp_tool_registry
+from src.tools.mcp_server import handle_mcp_jsonrpc
 
 
 def test_mcp_initialize():

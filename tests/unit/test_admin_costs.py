@@ -6,9 +6,8 @@ attribution is wired through current_user_id (FastAPI dep sets it) and
 read inside _attribution_kwargs in llm_factory; here we verify the
 read-side aggregation paths.
 """
-from __future__ import annotations
 
-import json
+from __future__ import annotations
 
 import httpx
 import pytest
@@ -34,6 +33,7 @@ def client():
 
 # ── auth gates ────────────────────────────────────────────────────────────
 
+
 def test_admin_costs_requires_auth(client):
     resp = client.get("/admin/costs")
     assert resp.status_code in (401, 403)
@@ -49,6 +49,7 @@ def test_admin_costs_rejects_non_admin(client):
 
 
 # ── aggregation: stub Langfuse, verify totals + buckets ───────────────────
+
 
 def _stub_langfuse(responses: dict[str, dict]):
     """Build an httpx mock transport that returns canned JSON per URL path."""
@@ -75,25 +76,41 @@ async def test_admin_costs_aggregates_by_user_model_and_trace(monkeypatch, clien
         "data": [
             # Two calls from user-A
             {
-                "id": "obs-1", "name": "litellm-acompletion", "model": "gpt-4o-mini",
-                "promptTokens": 100, "completionTokens": 50, "calculatedTotalCost": 0.0010,
+                "id": "obs-1",
+                "name": "litellm-acompletion",
+                "model": "gpt-4o-mini",
+                "promptTokens": 100,
+                "completionTokens": 50,
+                "calculatedTotalCost": 0.0010,
                 "traceId": "trace-A1",
             },
             {
-                "id": "obs-2", "name": "litellm-acompletion", "model": "gpt-4o-mini",
-                "promptTokens": 200, "completionTokens": 80, "calculatedTotalCost": 0.0020,
+                "id": "obs-2",
+                "name": "litellm-acompletion",
+                "model": "gpt-4o-mini",
+                "promptTokens": 200,
+                "completionTokens": 80,
+                "calculatedTotalCost": 0.0020,
                 "traceId": "trace-A2",
             },
             # One call from user-B on a different model
             {
-                "id": "obs-3", "name": "litellm-acompletion", "model": "claude-haiku-4-5",
-                "promptTokens": 50, "completionTokens": 25, "calculatedTotalCost": 0.0005,
+                "id": "obs-3",
+                "name": "litellm-acompletion",
+                "model": "claude-haiku-4-5",
+                "promptTokens": 50,
+                "completionTokens": 25,
+                "calculatedTotalCost": 0.0005,
                 "traceId": "trace-B1",
             },
             # An embedding (cache lookup) — no user (system call)
             {
-                "id": "obs-4", "name": "litellm-aembedding", "model": "text-embedding-3-small",
-                "promptTokens": 30, "completionTokens": 0, "calculatedTotalCost": 0.0001,
+                "id": "obs-4",
+                "name": "litellm-aembedding",
+                "model": "text-embedding-3-small",
+                "promptTokens": 30,
+                "completionTokens": 0,
+                "calculatedTotalCost": 0.0001,
                 "traceId": "trace-sys-1",
             },
         ],
@@ -106,10 +123,12 @@ async def test_admin_costs_aggregates_by_user_model_and_trace(monkeypatch, clien
         "trace-sys-1": {"userId": None},
     }
 
-    transport = _stub_langfuse({
-        "/api/public/observations": observations_payload,
-        "/api/public/traces": traces_payload,
-    })
+    transport = _stub_langfuse(
+        {
+            "/api/public/observations": observations_payload,
+            "/api/public/traces": traces_payload,
+        }
+    )
 
     # Patch httpx.AsyncClient inside admin.py to use our transport
     real_async_client = httpx.AsyncClient
@@ -157,6 +176,7 @@ async def test_admin_costs_aggregates_by_user_model_and_trace(monkeypatch, clien
 
 # ── Langfuse 5xx surfaces as 502 ──────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_admin_costs_handles_langfuse_failure(monkeypatch, client):
     def handler(request: httpx.Request) -> httpx.Response:
@@ -180,6 +200,7 @@ async def test_admin_costs_handles_langfuse_failure(monkeypatch, client):
 
 
 # ── Bounds check on the days query param ──────────────────────────────────
+
 
 def test_admin_costs_validates_days_range(client):
     headers = {"Authorization": f"Bearer {_admin_token()}"}

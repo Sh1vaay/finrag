@@ -20,12 +20,14 @@ def response_formatter_node(state: RAGState) -> dict:
         source_file = meta.get("source_file", "Unknown")
         if source_file not in seen:
             seen.add(source_file)
-            sources.append({
-                "file": source_file,
-                "page": meta.get("page_number"),
-                "section": meta.get("section_header", ""),
-                "doc_type": meta.get("doc_type", ""),
-            })
+            sources.append(
+                {
+                    "file": source_file,
+                    "page": meta.get("page_number"),
+                    "section": meta.get("section_header", ""),
+                    "doc_type": meta.get("doc_type", ""),
+                }
+            )
 
     # Add disclaimer if hallucination check was uncertain
     if hallucination_status == "hallucinated":

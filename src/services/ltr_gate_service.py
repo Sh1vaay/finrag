@@ -11,7 +11,9 @@ from functools import lru_cache
 from pathlib import Path
 
 
-def build_features(query: str, candidates: list[dict], target_company: str | None, target_fiscal_year: int | None) -> list[dict]:
+def build_features(
+    query: str, candidates: list[dict], target_company: str | None, target_fiscal_year: int | None
+) -> list[dict]:
     """Build simple per-candidate feature dicts for gate scoring/logging."""
     feats: list[dict] = []
     for idx, chunk in enumerate(candidates):
@@ -84,4 +86,3 @@ def dump_feature_log(path: str, query: str, features: list[dict], scores: list[f
     with out.open("a", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row) + "\n")
-

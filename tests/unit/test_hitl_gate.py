@@ -109,10 +109,10 @@ def test_hitl_gate_triggers_on_allocation_threshold():
 if __name__ == "__main__":
     import inspect
     import sys
+
     current_module = sys.modules[__name__]
     test_funcs = [
-        obj for name, obj in inspect.getmembers(current_module)
-        if inspect.isfunction(obj) and name.startswith("test_")
+        obj for name, obj in inspect.getmembers(current_module) if inspect.isfunction(obj) and name.startswith("test_")
     ]
     print(f"Running {len(test_funcs)} HITL gate unit tests...")
     passed = 0
@@ -124,5 +124,3 @@ if __name__ == "__main__":
             print(f"FAILED: {fn.__name__} - {e}")
             raise
     print(f"All {passed}/{len(test_funcs)} tests passed successfully!")
-
-

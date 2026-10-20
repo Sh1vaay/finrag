@@ -1,7 +1,7 @@
 """Unit test suite for Model Risk Governance (MRG / SR 11-7) automated validation."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Ensure project root is on PYTHONPATH
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

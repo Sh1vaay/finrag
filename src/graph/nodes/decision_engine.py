@@ -238,12 +238,18 @@ def decision_engine_node(state: RAGState) -> dict:
             summary_lines.append("### Portfolio Rebalancing Decision Governance")
             summary_lines.append(f"- **Simulated Trade**: `{trade_ticker}` {trade_delta:+.1f}%")
             summary_lines.append(f"- **Decision**: **{trade_eval['decision']}**")
-            summary_lines.append(f"- **Post-Trade Weight**: {trade_eval['post_trade_weight_pct']}% (Cap: {trade_eval['mandate_limits']['max_single_position_pct']}%)")
-            summary_lines.append(f"- **HHI Index Impact**: {trade_eval['pre_trade_hhi']} -> {trade_eval['post_trade_hhi']} (Delta: {trade_eval['delta_hhi']:+.1f})")
+            summary_lines.append(
+                f"- **Post-Trade Weight**: {trade_eval['post_trade_weight_pct']}% (Cap: {trade_eval['mandate_limits']['max_single_position_pct']}%)"
+            )
+            summary_lines.append(
+                f"- **HHI Index Impact**: {trade_eval['pre_trade_hhi']} -> {trade_eval['post_trade_hhi']} (Delta: {trade_eval['delta_hhi']:+.1f})"
+            )
             if trade_eval["violations"]:
                 summary_lines.append(f"- **Violations**: {'; '.join(trade_eval['violations'])}")
             else:
-                summary_lines.append("- **Mandate Compliance**: All concentration ceilings (HHI < 2500, Single < 15%) respected.")
+                summary_lines.append(
+                    "- **Mandate Compliance**: All concentration ceilings (HHI < 2500, Single < 15%) respected."
+                )
 
     # 2. Company Fundamental Decision Modeling (Piotroski & Altman Z)
     # Check if target company or canonical ticker is in query or state
@@ -259,7 +265,21 @@ def decision_engine_node(state: RAGState) -> dict:
     if not detected_slug:
         candidate_tickers = re.findall(r"\b[A-Z]{2,5}\b", query)
         for t in candidate_tickers:
-            if t not in ("SEC", "GAAP", "CAGR", "EBIT", "EBITDA", "EPS", "USD", "ROE", "ROA", "FY", "HHI", "VAR", "CVAR"):
+            if t not in (
+                "SEC",
+                "GAAP",
+                "CAGR",
+                "EBIT",
+                "EBITDA",
+                "EPS",
+                "USD",
+                "ROE",
+                "ROA",
+                "FY",
+                "HHI",
+                "VAR",
+                "CVAR",
+            ):
                 detected_slug = t.lower()
                 break
 
@@ -267,10 +287,27 @@ def decision_engine_node(state: RAGState) -> dict:
     if not fund_data and detected_slug:
         fund_data = get_fundamentals(detected_slug)
 
-    is_quant_query = any(k in q_lower for k in [
-        "piotroski", "altman", "z-score", "f-score", "fundamental health", "bankruptcy",
-        "distress", "solvency", "conviction", "decision", "overweight", "rating", "financial health"
-    ]) or detected_slug is not None
+    is_quant_query = (
+        any(
+            k in q_lower
+            for k in [
+                "piotroski",
+                "altman",
+                "z-score",
+                "f-score",
+                "fundamental health",
+                "bankruptcy",
+                "distress",
+                "solvency",
+                "conviction",
+                "decision",
+                "overweight",
+                "rating",
+                "financial health",
+            ]
+        )
+        or detected_slug is not None
+    )
 
     if fund_data and (is_quant_query or state.get("query_intent") in ("market_data", "retrieval")):
         # Calculate Piotroski F-Score
@@ -285,12 +322,17 @@ def decision_engine_node(state: RAGState) -> dict:
         conviction = evaluate_composite_investment_conviction(
             piotroski_score=piotroski["piotroski_f_score"],
             altman_zone=altman["solvency_zone"],
-            valuation_multiples={"pe_ratio": fund_data.get("pe_ratio"), "fcf_yield_pct": fund_data.get("fcf_yield_pct")},
+            valuation_multiples={
+                "pe_ratio": fund_data.get("pe_ratio"),
+                "fcf_yield_pct": fund_data.get("fcf_yield_pct"),
+            },
             profitability_metrics={"return_on_equity_pct": fund_data.get("roe_pct")},
         )
         analysis_results["composite_conviction"] = conviction
 
-        summary_lines.append(f"### Quantitative Investment Decision Sheet: {fund_data['company']} ({fund_data['ticker']})")
+        summary_lines.append(
+            f"### Quantitative Investment Decision Sheet: {fund_data['company']} ({fund_data['ticker']})"
+        )
         summary_lines.append(
             f"| Model | Score / Zone | Institutional Rating | Key Attribution |\n"
             f"| :--- | :--- | :--- | :--- |\n"
@@ -316,7 +358,10 @@ def decision_engine_node(state: RAGState) -> dict:
         )
 
     # 4. Constrained Portfolio Optimization (Ledoit-Wolf Covariance)
-    wants_optimization = any(k in q_lower for k in ["optimize", "minimum variance", "min variance", "reweight", "efficient frontier", "shrinkage"])
+    wants_optimization = any(
+        k in q_lower
+        for k in ["optimize", "minimum variance", "min variance", "reweight", "efficient frontier", "shrinkage"]
+    )
     if wants_optimization:
         if user_role not in ("portfolio_manager", "admin"):
             summary_lines.append(
@@ -336,7 +381,9 @@ def decision_engine_node(state: RAGState) -> dict:
             )
 
     # 5. Factor Sensitivity & Systematic Risk Decomposition
-    wants_factors = any(k in q_lower for k in ["factor", "beta", "fama french", "systematic risk", "idiosyncratic", "style tilt"])
+    wants_factors = any(
+        k in q_lower for k in ["factor", "beta", "fama french", "systematic risk", "idiosyncratic", "style tilt"]
+    )
     if wants_factors and (detected_slug or target_company):
         ticker_symbol = (fund_data["ticker"] if fund_data else (target_company or "AAPL")).upper()
         factor_eval = calculate_factor_exposures(ticker=ticker_symbol)
@@ -356,6 +403,7 @@ def decision_engine_node(state: RAGState) -> dict:
     # Emit OpenTelemetry tracing log
     try:
         from src.services.event_log import emit
+
         emit(
             "decision_engine",
             models_executed=list(analysis_results.keys()),

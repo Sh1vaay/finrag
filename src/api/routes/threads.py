@@ -16,6 +16,7 @@ API, so thread enumeration drops to raw SQL via ``thread_service``.
 Per-thread *contents* go through the public ``aget_state`` API so we
 don't reimplement the checkpoint deserializer.
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,7 +73,7 @@ def _is_interrupted(graph_state) -> tuple[bool, dict | None]:
     """
     interrupted = False
     payload: dict | None = None
-    for task in (graph_state.tasks or []):
+    for task in graph_state.tasks or []:
         if getattr(task, "interrupts", None):
             interrupt_value = task.interrupts[0].value
             interrupted = True
@@ -97,12 +98,14 @@ def _messages_from_state(state_values: dict[str, Any] | None) -> list[dict[str, 
     answer = state_values.get("final_response")
     if answer:
         meta = state_values.get("response_metadata") or {}
-        msgs.append({
-            "role": "assistant",
-            "content": answer,
-            "sources": meta.get("sources", []),
-            "confidence": meta.get("confidence"),
-        })
+        msgs.append(
+            {
+                "role": "assistant",
+                "content": answer,
+                "sources": meta.get("sources", []),
+                "confidence": meta.get("confidence"),
+            }
+        )
     return msgs
 
 
@@ -140,6 +143,7 @@ async def list_threads(
     graph = getattr(http_request.app.state, "graph", None)
     if graph is None:
         from src.api.routes.chat import _get_graph
+
         graph = _get_graph(checkpointer=http_request.app.state.checkpointer)
 
     threads = []
@@ -153,23 +157,25 @@ async def list_threads(
             interrupted, _ = _is_interrupted(gs)
         except Exception as e:
             logger.warning("aget_state failed for thread %s: %s", r["thread_id"], e)
-        threads.append({
-            "thread_id": r["thread_id"],
-            "title": title,
-            "checkpoint_count": r["checkpoint_count"],
-            "is_interrupted": interrupted,
-            # Track 2 enrichment: owner identity + decoded timestamps. The
-            # CLI uses these to render columns like "Owner | Role | Last
-            # activity" so admin can scan whose request is whose at a glance.
-            "owner": {
-                "user_id": r["user_id"],
-                "name": r["name"],
-                "role": r["role"],
-                "department": r["department"],
-            },
-            "created_at": r["created_at"],
-            "last_activity_at": r["last_activity_at"],
-        })
+        threads.append(
+            {
+                "thread_id": r["thread_id"],
+                "title": title,
+                "checkpoint_count": r["checkpoint_count"],
+                "is_interrupted": interrupted,
+                # Track 2 enrichment: owner identity + decoded timestamps. The
+                # CLI uses these to render columns like "Owner | Role | Last
+                # activity" so admin can scan whose request is whose at a glance.
+                "owner": {
+                    "user_id": r["user_id"],
+                    "name": r["name"],
+                    "role": r["role"],
+                    "department": r["department"],
+                },
+                "created_at": r["created_at"],
+                "last_activity_at": r["last_activity_at"],
+            }
+        )
 
     return {
         "threads": threads,
@@ -198,6 +204,7 @@ async def get_thread(
     # Bug A (audit) + Track 2: pull owner identity (4-tuple) instead of just
     # user_id so the response can carry the owner block. Same call cost.
     from src.services.thread_service import get_thread_owner_role
+
     owner_user_id, owner_role, owner_name, owner_dept = await get_thread_owner_role(pool, thread_id)
     if owner_user_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thread not found")
@@ -207,6 +214,7 @@ async def get_thread(
     graph = getattr(http_request.app.state, "graph", None)
     if graph is None:
         from src.api.routes.chat import _get_graph
+
         graph = _get_graph(checkpointer=http_request.app.state.checkpointer)
 
     cfg = {"configurable": {"thread_id": thread_id}}
@@ -236,6 +244,7 @@ async def get_thread(
     # have the deserialized state from aget_state above).
     try:
         from langchain_core.messages import HumanMessage
+
         turn_count = sum(1 for m in (values.get("messages") or []) if isinstance(m, HumanMessage))
     except Exception:
         turn_count = 0

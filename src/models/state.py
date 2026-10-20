@@ -5,6 +5,7 @@ try:
     from langgraph.graph.message import add_messages
 except ImportError:
     BaseMessage = Any  # type: ignore
+
     def add_messages(left, right):  # type: ignore
         return (left or []) + (right or [])
 
@@ -106,11 +107,11 @@ class RAGState(TypedDict):
     # the paused graph via /v1/hitl/approve or /v1/hitl/reject. Surfaced to the
     # requester via /v1/chat/result so they can see who decided their request,
     # when, and (on reject) why.
-    human_decision_at: Optional[str]      # ISO-8601 timestamp
-    human_decision_by: Optional[str]      # approver user_id
-    human_decision_by_role: Optional[str] # approver role
+    human_decision_at: Optional[str]  # ISO-8601 timestamp
+    human_decision_by: Optional[str]  # approver user_id
+    human_decision_by_role: Optional[str]  # approver role
     human_decision_reason: Optional[str]  # rejection reason (mandatory on reject)
-    hitl_submitted_at: Optional[str]      # ISO-8601 when the gate fired
+    hitl_submitted_at: Optional[str]  # ISO-8601 when the gate fired
 
     # --- Control Flow ---
     retrieval_retry_count: int

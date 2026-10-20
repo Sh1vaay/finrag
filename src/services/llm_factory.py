@@ -260,20 +260,20 @@ def _llm_for_task(model_name: str, temperature: float = 0.0, max_tokens: int = 2
     # Open-source / local prefixes
     for prefix in ("ollama/", "vllm/", "local/", "open_source/"):
         if model_name.startswith(prefix):
-            stripped = model_name[len(prefix):]
+            stripped = model_name[len(prefix) :]
             return _open_source(model=stripped, temperature=temperature, max_tokens=max_tokens)
 
     # Provider prefixes
     if model_name.startswith("claude-"):
         return _anthropic(model_name, temperature=temperature, max_tokens=max_tokens)
     if model_name.startswith("anthropic/"):
-        return _anthropic(model_name[len("anthropic/"):], temperature=temperature, max_tokens=max_tokens)
+        return _anthropic(model_name[len("anthropic/") :], temperature=temperature, max_tokens=max_tokens)
     if model_name.startswith("gpt-"):
         return _openai(model_name, temperature=temperature, max_tokens=max_tokens)
     if model_name.startswith("openai/"):
-        return _openai(model_name[len("openai/"):], temperature=temperature, max_tokens=max_tokens)
+        return _openai(model_name[len("openai/") :], temperature=temperature, max_tokens=max_tokens)
     if model_name.startswith("groq/"):
-        return _groq(model_name[len("groq/"):], temperature=temperature)
+        return _groq(model_name[len("groq/") :], temperature=temperature)
 
     # Global provider type overrides
     if settings.LLM_PROVIDER_TYPE == "open_source":
@@ -291,8 +291,7 @@ def _llm_for_task(model_name: str, temperature: float = 0.0, max_tokens: int = 2
 
     _warn_once(
         "unconfigured_llm_fallback",
-        f"Model {model_name!r} requested but no matching API key found. "
-        "Falling back to PlaceholderChatModel.",
+        f"Model {model_name!r} requested but no matching API key found. Falling back to PlaceholderChatModel.",
     )
     return PlaceholderChatModel(model_name=model_name)
 
@@ -342,7 +341,9 @@ class LLMFactory:
             if provider == "openrouter":
                 key = settings.OPENROUTER_API_KEY or os.environ.get("OPENROUTER_API_KEY")
                 if key:
-                    _warn_once("grader_openrouter_llama", f"Grader: OpenRouter {settings.LLAMA_GRADER_MODEL_OPENROUTER}")
+                    _warn_once(
+                        "grader_openrouter_llama", f"Grader: OpenRouter {settings.LLAMA_GRADER_MODEL_OPENROUTER}"
+                    )
                     return ChatOpenAI(
                         model=settings.LLAMA_GRADER_MODEL_OPENROUTER,
                         temperature=0.0,

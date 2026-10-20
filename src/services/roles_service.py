@@ -18,6 +18,7 @@ The lookup is cached in-process for 30s so we don't hammer Postgres on
 every retrieval call. Cache invalidation: the ``/admin/roles`` CRUD
 endpoints call ``invalidate_cache()`` after writes.
 """
+
 from __future__ import annotations
 
 import json
@@ -139,6 +140,7 @@ def get_permissions(role: str) -> dict[str, Any]:
 
 # ── CRUD helpers (used by `/admin/roles`) ────────────────────────────────
 
+
 def list_roles() -> list[dict[str, Any]]:
     """Return every role record. Falls back to the static dict when DB
     is empty / unreachable so the admin UI never sees a blank state.
@@ -147,10 +149,7 @@ def list_roles() -> list[dict[str, Any]]:
     if _CACHE:
         return [{"name": name, **perms} for name, perms in _CACHE.items()]
     # Fallback: synthesize from the static config; mark all as system
-    return [
-        {"name": name, "is_system": True, **perms}
-        for name, perms in rbac_config.ROLE_PERMISSIONS.items()
-    ]
+    return [{"name": name, "is_system": True, **perms} for name, perms in rbac_config.ROLE_PERMISSIONS.items()]
 
 
 def get_role(name: str) -> dict[str, Any] | None:

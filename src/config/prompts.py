@@ -672,4 +672,3 @@ Decomposition:
 
 Collected evidence ({n_chunks} chunks, with [Source: filename, page] headers):
 {evidence}"""
-

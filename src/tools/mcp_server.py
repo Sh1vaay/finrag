@@ -148,11 +148,13 @@ class ToolRegistry:
             req_role = spec.get("required_role")
             if not _is_role_authorized(user_role, req_role):
                 continue
-            available.append({
-                "name": spec["name"],
-                "description": spec["description"],
-                "inputSchema": spec["inputSchema"],
-            })
+            available.append(
+                {
+                    "name": spec["name"],
+                    "description": spec["description"],
+                    "inputSchema": spec["inputSchema"],
+                }
+            )
         return available
 
     def call_tool(
@@ -188,6 +190,7 @@ class ToolRegistry:
         try:
             try:
                 from src.services.tracing_service import trace_span
+
                 span_cm = trace_span("mcp.tool_call", {"tool.name": name, "user.role": user_role, "user.id": user_id})
             except ImportError:
                 span_cm = None
@@ -282,7 +285,10 @@ class ToolRegistry:
                 "properties": {
                     "current_value": {"type": "number", "description": "Value for current period"},
                     "prior_value": {"type": "number", "description": "Value for comparison baseline period"},
-                    "metric_name": {"type": "string", "description": "Label of metric (e.g. 'Revenue', 'Operating Margin')"},
+                    "metric_name": {
+                        "type": "string",
+                        "description": "Label of metric (e.g. 'Revenue', 'Operating Margin')",
+                    },
                     "periods": {"type": "integer", "description": "Number of periods for annualized CAGR calculation"},
                 },
                 "required": ["current_value", "prior_value"],
@@ -331,7 +337,10 @@ class ToolRegistry:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "expression": {"type": "string", "description": "Arithmetic string e.g. '(383285 - 394328) / 394328'"},
+                    "expression": {
+                        "type": "string",
+                        "description": "Arithmetic string e.g. '(383285 - 394328) / 394328'",
+                    },
                 },
                 "required": ["expression"],
             },
@@ -346,10 +355,19 @@ class ToolRegistry:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "holdings": {"type": "object", "description": "Dictionary of ticker to dollar value or percentage weight"},
-                    "confidence_level": {"type": "number", "description": "Confidence level (0.95 or 0.99, default 0.95)"},
+                    "holdings": {
+                        "type": "object",
+                        "description": "Dictionary of ticker to dollar value or percentage weight",
+                    },
+                    "confidence_level": {
+                        "type": "number",
+                        "description": "Confidence level (0.95 or 0.99, default 0.95)",
+                    },
                     "time_horizon_days": {"type": "integer", "description": "Time horizon in trading days (default 1)"},
-                    "portfolio_nav_usd": {"type": "number", "description": "Portfolio NAV in USD (default 10,000,000.0)"},
+                    "portfolio_nav_usd": {
+                        "type": "number",
+                        "description": "Portfolio NAV in USD (default 10,000,000.0)",
+                    },
                 },
                 "required": ["holdings"],
             },
@@ -364,10 +382,19 @@ class ToolRegistry:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "holdings": {"type": "object", "description": "Dictionary of ticker to current weight or dollar value"},
+                    "holdings": {
+                        "type": "object",
+                        "description": "Dictionary of ticker to current weight or dollar value",
+                    },
                     "target_objective": {"type": "string", "description": "Optimization target (e.g. 'min_variance')"},
-                    "max_single_cap": {"type": "number", "description": "Maximum weight per position (e.g. 0.15 for 15%)"},
-                    "shrinkage_intensity": {"type": "number", "description": "Ledoit-Wolf shrinkage factor delta (0.0 - 1.0)"},
+                    "max_single_cap": {
+                        "type": "number",
+                        "description": "Maximum weight per position (e.g. 0.15 for 15%)",
+                    },
+                    "shrinkage_intensity": {
+                        "type": "number",
+                        "description": "Ledoit-Wolf shrinkage factor delta (0.0 - 1.0)",
+                    },
                 },
                 "required": ["holdings"],
             },
@@ -394,6 +421,7 @@ class ToolRegistry:
 
         # 10. Official SEC EDGAR Filing Discovery (Analyst, PM, Compliance, Admin)
         from src.services.sec_edgar_service import fetch_recent_filings
+
         self.register(
             name="get_sec_filings",
             description="Retrieve recent audited SEC filings (10-K, 10-Q, 8-K) dates and official EDGAR report URLs.",
@@ -401,11 +429,17 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "ticker": {"type": "string", "description": "Equity ticker symbol (e.g. 'AAPL', 'MSFT', 'NVDA')"},
-                    "form_type": {"type": "string", "description": "Filing form type: '10-K', '10-Q', or '8-K' (default '10-K')"},
+                    "form_type": {
+                        "type": "string",
+                        "description": "Filing form type: '10-K', '10-Q', or '8-K' (default '10-K')",
+                    },
                 },
                 "required": ["ticker"],
             },
-            handler=lambda ticker, form_type="10-K": {"ticker": ticker.upper(), "filings": fetch_recent_filings(ticker, form_type=form_type)},
+            handler=lambda ticker, form_type="10-K": {
+                "ticker": ticker.upper(),
+                "filings": fetch_recent_filings(ticker, form_type=form_type),
+            },
             required_role="research_analyst",
         )
 
@@ -489,9 +523,7 @@ def call_tool(
     user_id: str = "system",
 ) -> dict[str, Any]:
     """Invoke a registered MCP tool with role gating."""
-    return mcp_tool_registry.call_tool(
-        name=name, arguments=arguments, user_role=user_role, user_id=user_id
-    )
+    return mcp_tool_registry.call_tool(name=name, arguments=arguments, user_role=user_role, user_id=user_id)
 
 
 def create_official_mcp_server(default_role: str = "research_analyst"):
@@ -524,5 +556,3 @@ def create_official_mcp_server(default_role: str = "research_analyst"):
 
 
 handle_json_rpc = handle_mcp_jsonrpc
-
-

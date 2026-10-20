@@ -17,18 +17,22 @@ level (chunks unauthorized for a role are never retrieved, not just hidden after
 retrieval). The research agent's `retrieve_for_subq` sub-node delegates through
 the existing retrieval path so it inherits this filter.
 """
+
 from __future__ import annotations
 
 try:
     import pytest
 except ImportError:
+
     class _MockPytest:
         class mark:
             @staticmethod
             def skipif(*args, **kwargs):
                 def decorator(f):
                     return f
+
                 return decorator
+
     pytest = _MockPytest()
 
 from src.config.rbac_config import get_permissions
@@ -58,6 +62,7 @@ qdrant_required = pytest.mark.skipif(
 # ────────────────────────────────────────────────────────────
 # Layer 1: filter-shape tests (no Qdrant)
 # ────────────────────────────────────────────────────────────
+
 
 class TestRBACFilterShape:
     """Verify filter construction matches each role's documented permissions."""
@@ -123,6 +128,7 @@ class TestRBACFilterShape:
 # Layer 2: Qdrant end-to-end (skip if Qdrant down)
 # ────────────────────────────────────────────────────────────
 
+
 @qdrant_required
 class TestRBACQdrantEnforcement:
     """Confirm Qdrant respects the filter against the live FB collection.
@@ -183,8 +189,7 @@ class TestRBACQdrantEnforcement:
         assert n == n_10k_chunks
 
     def test_c_level_matches_analyst_on_fb_corpus(self, client):
-        """c_level can view {10k, invoice, expense_policy, board_report}.
-        """
+        """c_level can view {10k, invoice, expense_policy, board_report}."""
         n_c_level = self._count_for_role(client, "c_level")
         n_analyst = self._count_for_role(client, "analyst")
         assert n_c_level == n_analyst, (

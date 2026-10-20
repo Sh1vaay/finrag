@@ -60,13 +60,13 @@ def classify_question_type(question: str) -> str:
         "in units of percents",
     )
     multihop_markers = (
-        "exclude",          # "If we exclude the impact of M&A..."
-        "compare",          # "How does X compare to Y"
+        "exclude",  # "If we exclude the impact of M&A..."
+        "compare",  # "How does X compare to Y"
         "compared to",
-        "driven by",        # "decline driven by..."
-        "what drove",       # "What drove operating margin change"
+        "driven by",  # "decline driven by..."
+        "what drove",  # "What drove operating margin change"
         "which segment",
-        " vs ",             # "FY2022 vs FY2021"
+        " vs ",  # "FY2022 vs FY2021"
         " vs.",
         "year over year",
     )
@@ -151,4 +151,3 @@ def build_slice_summary(
         row["pass_when_answered"] = row["answered_passes"] / answered
 
     return by_type
-

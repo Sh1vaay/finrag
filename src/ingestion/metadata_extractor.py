@@ -17,9 +17,28 @@ logger = logging.getLogger(__name__)
 DOC_TYPE_PATTERNS = {
     "10k": [r"10-K", r"annual report", r"form 10-K", r"fiscal year ended"],
     "10q": [r"10-Q", r"quarterly report", r"form 10-Q", r"quarter ended"],
-    "earnings_transcript": [r"earnings call", r"earnings conference call", r"prepared remarks", r"transcript", r"q&a session", r"call transcript"],
-    "equity_research": [r"equity research", r"investment memo", r"analyst note", r"price target", r"initiation of coverage"],
-    "portfolio_holdings": [r"portfolio holdings", r"fund holdings", r"asset allocation", r"mandate weights", r"active weight"],
+    "earnings_transcript": [
+        r"earnings call",
+        r"earnings conference call",
+        r"prepared remarks",
+        r"transcript",
+        r"q&a session",
+        r"call transcript",
+    ],
+    "equity_research": [
+        r"equity research",
+        r"investment memo",
+        r"analyst note",
+        r"price target",
+        r"initiation of coverage",
+    ],
+    "portfolio_holdings": [
+        r"portfolio holdings",
+        r"fund holdings",
+        r"asset allocation",
+        r"mandate weights",
+        r"active weight",
+    ],
 }
 
 # Slug -> display name. Slug is what lands in Qdrant's `company` payload field

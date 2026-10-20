@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 def blocked_response_node(state: RAGState) -> dict:
-    return {"final_response": BLOCKED_RESPONSE, "response_metadata": {"reason": state.get("guardrail_status", "blocked")}}
+    return {
+        "final_response": BLOCKED_RESPONSE,
+        "response_metadata": {"reason": state.get("guardrail_status", "blocked")},
+    }
 
 
 def out_of_scope_node(state: RAGState) -> dict:
@@ -86,6 +89,9 @@ def no_info_node(state: RAGState) -> dict:
             f"Switch to a role with access via `/role <name>`. "
             f"Try `finance` for invoices and expense policies, or `clevel` for confidential reports."
         )
-        return {"final_response": msg, "response_metadata": {"reason": "rbac_restricted", "blocked_doc_types": sorted(blocked)}}
+        return {
+            "final_response": msg,
+            "response_metadata": {"reason": "rbac_restricted", "blocked_doc_types": sorted(blocked)},
+        }
 
     return {"final_response": NO_INFO_RESPONSE, "response_metadata": {"reason": "no_relevant_info"}}

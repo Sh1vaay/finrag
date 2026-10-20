@@ -31,44 +31,13 @@ Output (merged into RAGState):
   - agent_turns_used: int (for diagnostics)
   - agent_sub_questions: list[str]
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
 from typing import Any
-
-# Path to project root
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-try:
-    from langchain_anthropic import ChatAnthropic
-except ImportError:
-    ChatAnthropic = Any  # type: ignore
-
-try:
-    from langchain_core.messages import HumanMessage, SystemMessage
-except ImportError:
-    class HumanMessage:  # type: ignore
-        def __init__(self, content):
-            self.content = content
-    class SystemMessage:  # type: ignore
-        def __init__(self, content):
-            self.content = content
-
-try:
-    from pydantic import BaseModel, Field
-except ImportError:
-    class BaseModel:  # type: ignore
-        def __init__(self, **kwargs):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-    def Field(*args, **kwargs):  # type: ignore
-        default = kwargs.get("default")
-        default_factory = kwargs.get("default_factory")
-        if default_factory is not None:
-            return default_factory()
-        return default
 
 from src.config.prompts import (
     AGENT_SYNTHESIZER_SYSTEM_PROMPT,
@@ -84,6 +53,43 @@ from src.models.state import RAGState
 from src.services.llm_factory import LLMFactory
 from src.tools.calculator import CalculatorError, compute
 
+try:
+    from langchain_anthropic import ChatAnthropic
+except ImportError:
+    ChatAnthropic = Any  # type: ignore
+
+try:
+    from langchain_core.messages import HumanMessage, SystemMessage
+except ImportError:
+
+    class HumanMessage:  # type: ignore
+        def __init__(self, content):
+            self.content = content
+
+    class SystemMessage:  # type: ignore
+        def __init__(self, content):
+            self.content = content
+
+
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+
+    class BaseModel:  # type: ignore
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def Field(*args, **kwargs):  # type: ignore
+        default = kwargs.get("default")
+        default_factory = kwargs.get("default_factory")
+        if default_factory is not None:
+            return default_factory()
+        return default
+
+
+# Path to project root
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 logger = logging.getLogger(__name__)
 
 
@@ -102,16 +108,14 @@ class _Decomposition(BaseModel):
 
     qualifiers: list[str] = Field(
         description="Question qualifiers that change WHAT counts as a correct answer "
-                    "(e.g. 'exclude M&A', 'organic', 'year over year direction'). "
-                    "Use ['no qualifiers'] if none."
+        "(e.g. 'exclude M&A', 'organic', 'year over year direction'). "
+        "Use ['no qualifiers'] if none."
     )
     required_quantities: list[str] = Field(
         description="The 2+ inputs the question's answer requires (current assets, "
-                    "current liabilities, operating income FY-1, etc)."
+        "current liabilities, operating income FY-1, etc)."
     )
-    sub_questions: list[str] = Field(
-        description="2–4 atomic sub-questions, each retrievable from a single section."
-    )
+    sub_questions: list[str] = Field(description="2–4 atomic sub-questions, each retrievable from a single section.")
 
 
 class _SufficiencyVerdict(BaseModel):
@@ -126,9 +130,7 @@ class _SufficiencyVerdict(BaseModel):
 class _AgentSynthesis(BaseModel):
     """Output of the synthesize step (includes calculator arithmetic expression field)."""
 
-    synthesis: str = Field(
-        description="Structured-markdown context block for the generator."
-    )
+    synthesis: str = Field(description="Structured-markdown context block for the generator.")
     arithmetic_expression: str | None = Field(
         default=None,
         description=(
@@ -164,11 +166,15 @@ def _claude_with_caching() -> ChatAnthropic:
 def _system_block(prompt_text: str, llm) -> SystemMessage:
     """Anthropic cache_control marker on system text when llm is ChatAnthropic."""
     if isinstance(llm, ChatAnthropic):
-        return SystemMessage(content=[{
-            "type": "text",
-            "text": prompt_text,
-            "cache_control": {"type": "ephemeral"},
-        }])
+        return SystemMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": prompt_text,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        )
     return SystemMessage(content=prompt_text)
 
 
@@ -263,10 +269,12 @@ def _decompose(query: str, target_company: str | None, target_fiscal_year: int |
         target_fiscal_year=target_fiscal_year or "(not specified)",
     )
     try:
-        result: _Decomposition = structured.invoke([
-            _system_block(prompt, llm),
-            HumanMessage(content=f"Decompose this question: {query}"),
-        ])
+        result: _Decomposition = structured.invoke(
+            [
+                _system_block(prompt, llm),
+                HumanMessage(content=f"Decompose this question: {query}"),
+            ]
+        )
         # Defensive truncation
         result.sub_questions = result.sub_questions[:MAX_SUB_QUESTIONS]
         return result
@@ -303,10 +311,12 @@ def _judge_sufficiency(
         evidence_summary=_evidence_summary(chunks),
     )
     try:
-        verdict: _SufficiencyVerdict = structured.invoke([
-            _system_block(prompt, llm),
-            HumanMessage(content="Judge sufficiency now."),
-        ])
+        verdict: _SufficiencyVerdict = structured.invoke(
+            [
+                _system_block(prompt, llm),
+                HumanMessage(content="Judge sufficiency now."),
+            ]
+        )
         return verdict
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Sufficiency judge failed, defaulting to sufficient: {exc}")
@@ -370,10 +380,12 @@ def _synthesize_legacy(
         evidence=_full_evidence(chunks),
     )
     try:
-        result = llm.invoke([
-            _system_block(prompt, llm),
-            HumanMessage(content="Synthesize now."),
-        ])
+        result = llm.invoke(
+            [
+                _system_block(prompt, llm),
+                HumanMessage(content="Synthesize now."),
+            ]
+        )
         synthesis = result.content if isinstance(result.content, str) else str(result.content)
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Synthesizer failed, falling back to chunk concatenation: {exc}")
@@ -406,10 +418,12 @@ def _synthesize_with_calculator(
 
     structured = llm.with_structured_output(_AgentSynthesis)
     try:
-        result: _AgentSynthesis = structured.invoke([
-            _system_block(prompt, llm),
-            HumanMessage(content="Synthesize now."),
-        ])
+        result: _AgentSynthesis = structured.invoke(
+            [
+                _system_block(prompt, llm),
+                HumanMessage(content="Synthesize now."),
+            ]
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Synthesizer failed, falling back to chunk concatenation: {exc}")
         return (
@@ -426,9 +440,7 @@ def _synthesize_with_calculator(
             diagnostics["calculator_invoked"] = True
             diagnostics["calculator_value"] = value
             synthesis = (
-                synthesis.rstrip()
-                + f"\n\n**Verified arithmetic** (calculator-evaluated): "
-                f"`{expr}` = **{value:.6g}**"
+                synthesis.rstrip() + f"\n\n**Verified arithmetic** (calculator-evaluated): `{expr}` = **{value:.6g}**"
             )
             logger.info(f"Calculator: '{expr}' = {value:.6g}")
         except CalculatorError as exc:
@@ -490,11 +502,30 @@ def _resolve_ticker(query: str, target_company: str | None) -> str | None:
         if norm in COMPANY_TICKER_MAP:
             return COMPANY_TICKER_MAP[norm]
     import re
+
     tickers = re.findall(r"\b[A-Z]{2,5}\b", query)
     if tickers:
         ignore = {
-            "SEC", "GAAP", "CAGR", "EBIT", "EBITDA", "EPS", "USD", "ROE", "ROA",
-            "FY", "Q1", "Q2", "Q3", "Q4", "HHI", "PE", "PB", "FCF", "EV", "RAG"
+            "SEC",
+            "GAAP",
+            "CAGR",
+            "EBIT",
+            "EBITDA",
+            "EPS",
+            "USD",
+            "ROE",
+            "ROA",
+            "FY",
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "HHI",
+            "PE",
+            "PB",
+            "FCF",
+            "EV",
+            "RAG",
         }
         for t in tickers:
             if t not in ignore:
@@ -525,9 +556,20 @@ def _execute_mcp_tools(
 
     # 1. Market Data Tool (get_market_data)
     market_data_keywords = (
-        "market data", "stock price", "share price", "market cap", "beta",
-        "52-week", "52 week", "trading price", "live price", "current price",
-        "pe ratio", "p/e", "forward p/e", "trailing p/e"
+        "market data",
+        "stock price",
+        "share price",
+        "market cap",
+        "beta",
+        "52-week",
+        "52 week",
+        "trading price",
+        "live price",
+        "current price",
+        "pe ratio",
+        "p/e",
+        "forward p/e",
+        "trailing p/e",
     )
     wants_market_data = any(kw in q_lower for kw in market_data_keywords) or any(
         any(kw in sq.lower() for kw in market_data_keywords) for sq in decomp.sub_questions
@@ -609,9 +651,14 @@ def research_agent_node(state: RAGState) -> dict:
         f"qualifiers={decomp.qualifiers}; required={decomp.required_quantities}"
     )
     from src.services.event_log import emit
-    emit("research_agent.decompose", n_sub_questions=len(sub_questions),
-         qualifiers=list(decomp.qualifiers), required_quantities=list(decomp.required_quantities),
-         sub_questions=list(sub_questions))
+
+    emit(
+        "research_agent.decompose",
+        n_sub_questions=len(sub_questions),
+        qualifiers=list(decomp.qualifiers),
+        required_quantities=list(decomp.required_quantities),
+        sub_questions=list(sub_questions),
+    )
 
     # Turns 2..(2+K): retrieve + grade per sub-question
     chunks_by_id: dict[tuple, dict] = {}
@@ -628,26 +675,43 @@ def research_agent_node(state: RAGState) -> dict:
     for round_idx in range(MAX_FOLLOWUP_ROUNDS):
         chunks = list(chunks_by_id.values())
         verdict = _judge_sufficiency(query, decomp, chunks)
-        sufficiency_history.append({
-            "decision": verdict.decision,
-            "missing": verdict.missing_quantity,
-            "follow_up": verdict.follow_up_question,
-            "reason": verdict.reason,
-        })
+        sufficiency_history.append(
+            {
+                "decision": verdict.decision,
+                "missing": verdict.missing_quantity,
+                "follow_up": verdict.follow_up_question,
+                "reason": verdict.reason,
+            }
+        )
         if verdict.decision == "sufficient":
             logger.info(f"Agent: sufficient after round {round_idx} ({verdict.reason})")
-            emit("research_agent.sufficiency", decision="sufficient", round=round_idx,
-                 reason=verdict.reason, n_chunks_so_far=len(chunks_by_id))
+            emit(
+                "research_agent.sufficiency",
+                decision="sufficient",
+                round=round_idx,
+                reason=verdict.reason,
+                n_chunks_so_far=len(chunks_by_id),
+            )
             break
         if not verdict.follow_up_question:
-            logger.info(f"Agent: 'need_more' but no follow-up — exiting loop")
-            emit("research_agent.sufficiency", decision="need_more_no_followup",
-                 round=round_idx, reason=verdict.reason, n_chunks_so_far=len(chunks_by_id))
+            logger.info("Agent: 'need_more' but no follow-up — exiting loop")
+            emit(
+                "research_agent.sufficiency",
+                decision="need_more_no_followup",
+                round=round_idx,
+                reason=verdict.reason,
+                n_chunks_so_far=len(chunks_by_id),
+            )
             break
         logger.info(f"Agent follow-up [{round_idx}]: {verdict.follow_up_question} ({verdict.reason})")
-        emit("research_agent.sufficiency", decision="need_more", round=round_idx,
-             follow_up=verdict.follow_up_question, missing=verdict.missing_quantity,
-             reason=verdict.reason)
+        emit(
+            "research_agent.sufficiency",
+            decision="need_more",
+            round=round_idx,
+            follow_up=verdict.follow_up_question,
+            missing=verdict.missing_quantity,
+            reason=verdict.reason,
+        )
         for c in _retrieve_and_grade_for_subq(state, verdict.follow_up_question):
             cid = _chunk_id(c)
             if cid not in chunks_by_id:
@@ -679,11 +743,15 @@ def research_agent_node(state: RAGState) -> dict:
         f"calc_invoked={calc_diagnostics['calculator_invoked']}, "
         f"mcp_tools_invoked={len(mcp_results)}"
     )
-    emit("research_agent.synthesize", n_chunks=len(relevant_chunks), turns_used=turns_used,
-         calculator_invoked=calc_diagnostics.get("calculator_invoked", False),
-         calculator_value=calc_diagnostics.get("calculator_value"),
-         mcp_tools_invoked=[r["name"] for r in mcp_results],
-         synthesis_chars=len(synthesis) if synthesis else 0)
+    emit(
+        "research_agent.synthesize",
+        n_chunks=len(relevant_chunks),
+        turns_used=turns_used,
+        calculator_invoked=calc_diagnostics.get("calculator_invoked", False),
+        calculator_value=calc_diagnostics.get("calculator_value"),
+        mcp_tools_invoked=[r["name"] for r in mcp_results],
+        synthesis_chars=len(synthesis) if synthesis else 0,
+    )
 
     # Mark grading_results so the main grader path doesn't re-grade.
     grading_results = [{"agent_curated": True} for _ in relevant_chunks]

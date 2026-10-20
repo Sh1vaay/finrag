@@ -18,12 +18,11 @@ we surface a 404 — Qdrant being the source of truth for "what's indexed"
 means RBAC still applies even when the file is gone, but we don't fabricate
 a fake response.
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -37,6 +36,7 @@ from src.services.vector_store import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
@@ -51,9 +51,7 @@ def _lookup_document_meta(filename: str) -> dict | None:
     try:
         points, _ = client.scroll(
             collection_name=settings.QDRANT_COLLECTION,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="source_file", match=MatchValue(value=filename))]
-            ),
+            scroll_filter=Filter(must=[FieldCondition(key="source_file", match=MatchValue(value=filename))]),
             limit=1,
             with_payload=True,
             with_vectors=False,
@@ -111,7 +109,9 @@ async def get_document(filename: str, user: User = Depends(get_current_user)):
 
     perms = get_permissions(user.role)
     if not _is_allowed(perms, meta):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to this document is not permitted for your role")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access to this document is not permitted for your role"
+        )
 
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document file not on disk")

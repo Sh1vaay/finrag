@@ -9,17 +9,17 @@ Two concerns:
      flag is off (or hypotheticals are empty), it must behave exactly like
      the single-query path.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from src.config.settings import settings
 from src.graph.nodes import retrieval as retrieval_module
 from src.services import multi_hyde
-
 
 # ── Fake LLM ──────────────────────────────────────────────────────────────
 
@@ -37,6 +37,7 @@ class _FakeLLM:
 @pytest.fixture(autouse=True)
 def _no_cache(monkeypatch):
     """Bypass Redis result cache: every test calls the underlying LLM path."""
+
     def passthrough(_cache_name, _key_parts, compute, ttl_seconds=None):  # noqa: ARG001
         return compute()
 
@@ -189,11 +190,13 @@ def test_retrieval_node_with_multi_hyde_runs_n_plus_one_searches(monkeypatch, fa
 
     monkeypatch.setattr(retrieval_module, "hybrid_search", fake_hybrid_search)
 
-    out = retrieval_module.retrieval_node({
-        "sanitized_query": "What is ROE?",
-        "target_company": "apple",
-        "target_fiscal_year": 2023,
-    })
+    out = retrieval_module.retrieval_node(
+        {
+            "sanitized_query": "What is ROE?",
+            "target_company": "apple",
+            "target_fiscal_year": 2023,
+        }
+    )
 
     assert len(search_calls) == 4  # 1 original + 3 hypotheticals
     chunk_ids = [(c["metadata"]["source_file"], c["metadata"]["chunk_index"]) for c in out["retrieved_chunks"]]

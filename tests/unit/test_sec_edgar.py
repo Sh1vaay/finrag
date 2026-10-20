@@ -8,7 +8,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.services.sec_edgar_service import (
     fetch_recent_filings,
-    fetch_sec_company_facts,
     get_cik,
     get_fundamentals,
 )

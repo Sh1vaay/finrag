@@ -142,7 +142,11 @@ def calculate_altman_z_score(inputs: dict[str, Any]) -> dict[str, Any]:
         raise DecisionModelError("Total assets must be strictly positive.")
 
     working_capital = float(inputs.get("working_capital", 0.0))
-    if "working_capital" not in inputs and "current_assets_current" in inputs and "current_liabilities_current" in inputs:
+    if (
+        "working_capital" not in inputs
+        and "current_assets_current" in inputs
+        and "current_liabilities_current" in inputs
+    ):
         working_capital = float(inputs["current_assets_current"]) - float(inputs["current_liabilities_current"])
 
     retained_earnings = float(inputs.get("retained_earnings", 0.0))
@@ -452,8 +456,14 @@ def optimize_portfolio_weights(
 
     # Priors for single-name volatility based on ticker heuristics
     vol_priors = {
-        "NVDA": 0.45, "TSLA": 0.48, "AAPL": 0.24, "MSFT": 0.22,
-        "AMZN": 0.28, "GOOGL": 0.25, "META": 0.32, "JPM": 0.20,
+        "NVDA": 0.45,
+        "TSLA": 0.48,
+        "AAPL": 0.24,
+        "MSFT": 0.22,
+        "AMZN": 0.28,
+        "GOOGL": 0.25,
+        "META": 0.32,
+        "JPM": 0.20,
     }
     asset_vols = [vol_priors.get(t.upper(), 0.26) for t in tickers]
 
@@ -565,13 +575,16 @@ def calculate_factor_exposures(
         "JPM": {"beta": 1.05, "smb": -0.35, "hml": 0.55, "vol": 20.0, "r2": 0.70},
     }
 
-    item = factor_catalog.get(tick, {
-        "beta": market_beta if market_beta is not None else 1.05,
-        "smb": -0.15,
-        "hml": 0.05,
-        "vol": 26.0,
-        "r2": 0.60,
-    })
+    item = factor_catalog.get(
+        tick,
+        {
+            "beta": market_beta if market_beta is not None else 1.05,
+            "smb": -0.15,
+            "hml": 0.05,
+            "vol": 26.0,
+            "r2": 0.60,
+        },
+    )
 
     beta = item["beta"]
     r2 = item["r2"]

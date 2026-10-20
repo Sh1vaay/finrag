@@ -12,7 +12,6 @@ from src.graph.builder import build_graph
 from src.models.auth import User
 from src.models.schemas import ChatRequest, ChatResponse
 from src.services.cost_tracker import RequestScopedCostHandler
-from src.services.reranker_service import get_reranker
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +129,7 @@ def _format_prior_qa_for_resolver(messages: list, max_turns: int = 3) -> str:
     """Format the last `max_turns` (human, ai) pairs as plain text for the
     query-resolver prompt. Skips system / tool messages."""
     from langchain_core.messages import AIMessage, HumanMessage
+
     lines: list[str] = []
     pair_count = 0
     last_human = None
@@ -146,12 +146,10 @@ def _format_prior_qa_for_resolver(messages: list, max_turns: int = 3) -> str:
         return "\n".join(lines) if lines else "(no prior turns)"
     keep_lines = pair_count - max_turns
     # Each pair = 2 lines (USER + ASSISTANT). Skip the oldest pairs.
-    return "\n".join(lines[keep_lines * 2:])
+    return "\n".join(lines[keep_lines * 2 :])
 
 
-async def _resolve_query_with_history(
-    user_text: str, graph, config: dict
-) -> tuple[str, bool]:
+async def _resolve_query_with_history(user_text: str, graph, config: dict) -> tuple[str, bool]:
     """Pre-graph step: if this thread has prior turns, ask a cheap LLM to
     expand pronouns/comparatives in the user's message into a self-contained
     query. Returns (resolved_text, was_rewritten). Failures fall back to the
@@ -172,7 +170,9 @@ async def _resolve_query_with_history(
 
     try:
         from langchain_core.messages import HumanMessage as _Hm
+
         from src.services.llm_factory import LLMFactory
+
         llm = LLMFactory.get_router_llm()
         prompt = _QUERY_RESOLVER_PROMPT.format(history=history_text, latest=user_text)
         resp = await llm.ainvoke([_Hm(content=prompt)])
@@ -181,9 +181,7 @@ async def _resolve_query_with_history(
             return user_text, False
         rewritten = resolved != user_text.strip()
         if rewritten:
-            logger.info(
-                f"Query resolved with history: {user_text[:60]!r} -> {resolved[:80]!r}"
-            )
+            logger.info(f"Query resolved with history: {user_text[:60]!r} -> {resolved[:80]!r}")
         return resolved, rewritten
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Query-resolver call failed ({type(exc).__name__}): {exc}")
@@ -201,9 +199,7 @@ async def chat(request: ChatRequest, user: User = Depends(get_current_user), htt
     resolved_message = request.message
     if checkpointer is not None and request.thread_id:
         resolver_config = {"configurable": {"thread_id": thread_id}}
-        resolved_message, _ = await _resolve_query_with_history(
-            request.message, graph, resolver_config
-        )
+        resolved_message, _ = await _resolve_query_with_history(request.message, graph, resolver_config)
 
     initial_state = _build_initial_state(resolved_message, user)
 
@@ -212,7 +208,14 @@ async def chat(request: ChatRequest, user: User = Depends(get_current_user), htt
         "configurable": {"thread_id": thread_id},
         "run_name": "rag_query",
         "tags": ["api", f"role:{user.role}"],
-        "metadata": {"user_id": user.user_id, "name": user.name, "department": user.department, "role": user.role, "thread_id": thread_id, "hitl_enabled": checkpointer is not None},
+        "metadata": {
+            "user_id": user.user_id,
+            "name": user.name,
+            "department": user.department,
+            "role": user.role,
+            "thread_id": thread_id,
+            "hitl_enabled": checkpointer is not None,
+        },
         "callbacks": [req_cost],
     }
 
@@ -264,9 +267,7 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
     resolved_message = request.message
     if checkpointer is not None and request.thread_id:
         resolver_config = {"configurable": {"thread_id": thread_id}}
-        resolved_message, _ = await _resolve_query_with_history(
-            request.message, graph, resolver_config
-        )
+        resolved_message, _ = await _resolve_query_with_history(request.message, graph, resolver_config)
 
     initial_state = _build_initial_state(resolved_message, user)
 
@@ -275,7 +276,14 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
         "configurable": {"thread_id": thread_id},
         "run_name": "rag_query_stream",
         "tags": ["api", "streaming", f"role:{user.role}"],
-        "metadata": {"user_id": user.user_id, "name": user.name, "department": user.department, "role": user.role, "thread_id": thread_id, "hitl_enabled": checkpointer is not None},
+        "metadata": {
+            "user_id": user.user_id,
+            "name": user.name,
+            "department": user.department,
+            "role": user.role,
+            "thread_id": thread_id,
+            "hitl_enabled": checkpointer is not None,
+        },
         "callbacks": [req_cost],
     }
 
@@ -297,25 +305,26 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
         # measurable from the CLI and lets users + future-me distinguish
         # "cold start" from "steady state" without reading docker logs.
         import time as _time
+
         _wall_start = _time.monotonic()
         _node_starts: dict[str, float] = {}
         _stage_timings_ms: dict[str, int] = {}
 
         try:
-            async for event in graph.astream_events(
-                initial_state, config=config, version="v2"
-            ):
+            async for event in graph.astream_events(initial_state, config=config, version="v2"):
                 kind = event.get("event", "")
                 name = event.get("name", "")
 
                 # Node start events — emit progress + record start time
                 if kind == "on_chain_start" and name in _NODE_LABELS:
                     _node_starts[name] = _time.monotonic()
-                    yield json.dumps({
-                        "type": "node_start",
-                        "node": name,
-                        "label": _NODE_LABELS[name],
-                    })
+                    yield json.dumps(
+                        {
+                            "type": "node_start",
+                            "node": name,
+                            "label": _NODE_LABELS[name],
+                        }
+                    )
 
                 # Node end events — capture final state + record elapsed ms
                 elif kind == "on_chain_end" and name in _NODE_LABELS:
@@ -324,10 +333,12 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
                     output = event.get("data", {}).get("output")
                     if isinstance(output, dict):
                         final_state = output
-                    yield json.dumps({
-                        "type": "node_end",
-                        "node": name,
-                    })
+                    yield json.dumps(
+                        {
+                            "type": "node_end",
+                            "node": name,
+                        }
+                    )
 
                 # LLM token streaming — only from the generator node, and only
                 # when the requester's role has no HITL threshold (otherwise
@@ -338,15 +349,13 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
                         tags = event.get("tags", [])
                         metadata = event.get("metadata", {}) or {}
                         node_name = metadata.get("langgraph_node", "")
-                        if (
-                            "generator" in name
-                            or any("generator" in t for t in tags)
-                            or "generator" in node_name
-                        ):
-                            yield json.dumps({
-                                "type": "token",
-                                "content": chunk.content,
-                            })
+                        if "generator" in name or any("generator" in t for t in tags) or "generator" in node_name:
+                            yield json.dumps(
+                                {
+                                    "type": "token",
+                                    "content": chunk.content,
+                                }
+                            )
 
             # After stream ends, check for HITL interrupts via graph state.
             # Phase 3.5: emit pending_approval with the list of roles authorized
@@ -360,15 +369,17 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
                         for task in graph_state.tasks:
                             if hasattr(task, "interrupts") and task.interrupts:
                                 interrupt_value = task.interrupts[0].value
-                                yield json.dumps({
-                                    "type": "pending_approval",
-                                    "reason": interrupt_value.get("reason", "Approval required"),
-                                    "max_amount": interrupt_value.get("max_amount"),
-                                    "threshold": interrupt_value.get("threshold"),
-                                    "thread_id": thread_id,
-                                    "approvers": approvers_for(user.role),
-                                    "requester_role": user.role,
-                                })
+                                yield json.dumps(
+                                    {
+                                        "type": "pending_approval",
+                                        "reason": interrupt_value.get("reason", "Approval required"),
+                                        "max_amount": interrupt_value.get("max_amount"),
+                                        "threshold": interrupt_value.get("threshold"),
+                                        "thread_id": thread_id,
+                                        "approvers": approvers_for(user.role),
+                                        "requester_role": user.role,
+                                    }
+                                )
                                 return
                 except Exception as e:
                     logger.warning(f"Failed to check graph state for interrupts: {e}")
@@ -378,38 +389,44 @@ async def chat_stream(request: ChatRequest, user: User = Depends(get_current_use
             _wall_clock_s = round(_time.monotonic() - _wall_start, 1)
             if final_state:
                 metadata = final_state.get("response_metadata", {})
-                yield json.dumps({
-                    "type": "final",
-                    "response": final_state.get("final_response", ""),
-                    "sources": metadata.get("sources", []),
-                    "confidence": metadata.get("confidence"),
-                    "requires_approval": final_state.get("requires_human_approval", False),
-                    "thread_id": thread_id,
-                    "cost_usd": cost_summary["cost_usd"],
-                    "tokens": cost_summary["tokens"],
-                    "wall_clock_s": _wall_clock_s,
-                    "stage_timings_ms": _stage_timings_ms,
-                })
+                yield json.dumps(
+                    {
+                        "type": "final",
+                        "response": final_state.get("final_response", ""),
+                        "sources": metadata.get("sources", []),
+                        "confidence": metadata.get("confidence"),
+                        "requires_approval": final_state.get("requires_human_approval", False),
+                        "thread_id": thread_id,
+                        "cost_usd": cost_summary["cost_usd"],
+                        "tokens": cost_summary["tokens"],
+                        "wall_clock_s": _wall_clock_s,
+                        "stage_timings_ms": _stage_timings_ms,
+                    }
+                )
             else:
-                yield json.dumps({
-                    "type": "final",
-                    "response": "No response generated.",
-                    "sources": [],
-                    "confidence": None,
-                    "requires_approval": False,
-                    "thread_id": thread_id,
-                    "cost_usd": cost_summary["cost_usd"],
-                    "tokens": cost_summary["tokens"],
-                    "wall_clock_s": _wall_clock_s,
-                    "stage_timings_ms": _stage_timings_ms,
-                })
+                yield json.dumps(
+                    {
+                        "type": "final",
+                        "response": "No response generated.",
+                        "sources": [],
+                        "confidence": None,
+                        "requires_approval": False,
+                        "thread_id": thread_id,
+                        "cost_usd": cost_summary["cost_usd"],
+                        "tokens": cost_summary["tokens"],
+                        "wall_clock_s": _wall_clock_s,
+                        "stage_timings_ms": _stage_timings_ms,
+                    }
+                )
 
         except Exception as e:
             logger.error(f"Streaming graph execution failed: {e}", exc_info=True)
-            yield json.dumps({
-                "type": "error",
-                "message": "An error occurred processing your request.",
-            })
+            yield json.dumps(
+                {
+                    "type": "error",
+                    "message": "An error occurred processing your request.",
+                }
+            )
 
     return EventSourceResponse(event_generator())
 
@@ -431,6 +448,7 @@ async def chat_result(
         raise HTTPException(status_code=503, detail="Result polling unavailable (no checkpointer)")
 
     from src.services.thread_service import get_thread_owner_role
+
     pool = getattr(http_request.app.state, "pool", None)
     if pool is not None:
         owner, requester_role, _name, _dept = await get_thread_owner_role(pool, thread_id)
@@ -445,7 +463,7 @@ async def chat_result(
     if gs is None or not gs.values:
         return {"status": "pending", "thread_id": thread_id}
 
-    for task in (gs.tasks or []):
+    for task in gs.tasks or []:
         if getattr(task, "interrupts", None):
             v = task.interrupts[0].value
             return {

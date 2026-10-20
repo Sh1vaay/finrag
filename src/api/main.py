@@ -58,7 +58,9 @@ async def lifespan(app: FastAPI):
     # Initialize PostgresSaver checkpointer for HITL persistence
     try:
         conninfo = settings.postgres_url
-        logger.info(f"Connecting to PostgreSQL at {settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
+        logger.info(
+            f"Connecting to PostgreSQL at {settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+        )
         pool = AsyncConnectionPool(
             conninfo=conninfo,
             min_size=1,
@@ -116,6 +118,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @lru_cache(maxsize=1)
 def _git_sha() -> str:
     # 0.1.5: prefer the GIT_SHA env var (injected at docker build time via
@@ -127,9 +130,7 @@ def _git_sha() -> str:
     if env_sha and env_sha != "unknown":
         return env_sha[:12]
     try:
-        out = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
-        ).strip()
+        out = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip()
         return out[:12]
     except Exception:
         return "unknown"

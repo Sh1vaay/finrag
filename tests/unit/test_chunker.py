@@ -1,11 +1,11 @@
 """Unit tests for src/ingestion/chunker.py."""
 
-from src.ingestion.chunker import MAX_CHUNK_CHARS, OVERLAP_CHARS, _recursive_split, chunk_document
-
+from src.ingestion.chunker import _recursive_split, chunk_document
 
 # ---------------------------------------------------------------------------
 # chunk_document tests
 # ---------------------------------------------------------------------------
+
 
 def test_chunk_document_empty_text_returns_empty_list():
     """chunk_document returns [] when the document text is empty."""
@@ -122,6 +122,7 @@ def test_chunk_document_does_not_mutate_input_metadata():
 # _recursive_split tests
 # ---------------------------------------------------------------------------
 
+
 def test_recursive_split_short_text_returns_one_chunk():
     """Text shorter than chunk_size is returned as a single chunk."""
     text = "Short paragraph one.\n\nShort paragraph two."
@@ -201,10 +202,10 @@ def test_recursive_split_all_content_preserved():
 if __name__ == "__main__":
     import inspect
     import sys
+
     current_module = sys.modules[__name__]
     test_funcs = [
-        obj for name, obj in inspect.getmembers(current_module)
-        if inspect.isfunction(obj) and name.startswith("test_")
+        obj for name, obj in inspect.getmembers(current_module) if inspect.isfunction(obj) and name.startswith("test_")
     ]
     print(f"Running {len(test_funcs)} chunker unit tests...")
     passed = 0
@@ -216,4 +217,3 @@ if __name__ == "__main__":
             print(f"FAILED: {fn.__name__} - {e}")
             raise
     print(f"All {passed}/{len(test_funcs)} tests passed successfully!")
-

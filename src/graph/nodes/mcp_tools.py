@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from src.models.state import RAGState
 from src.tools.mcp_client import MCPClient
@@ -47,11 +46,30 @@ def _resolve_ticker(query: str, target_company: str | None) -> str:
         if norm in COMPANY_TICKER_MAP:
             return COMPANY_TICKER_MAP[norm]
     import re
+
     tickers = re.findall(r"\b[A-Z]{2,5}\b", query)
     if tickers:
         ignore = {
-            "SEC", "GAAP", "CAGR", "EBIT", "EBITDA", "EPS", "USD", "ROE", "ROA",
-            "FY", "Q1", "Q2", "Q3", "Q4", "HHI", "PE", "PB", "FCF", "EV", "RAG"
+            "SEC",
+            "GAAP",
+            "CAGR",
+            "EBIT",
+            "EBITDA",
+            "EPS",
+            "USD",
+            "ROE",
+            "ROA",
+            "FY",
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "HHI",
+            "PE",
+            "PB",
+            "FCF",
+            "EV",
+            "RAG",
         }
         for t in tickers:
             if t not in ignore:
@@ -96,7 +114,7 @@ def mcp_tools_node(state: RAGState) -> dict:
             d = res["data"]
             content_lines.append(
                 f"Ticker: {d.get('ticker')} | Live Price: ${d.get('current_price', 'N/A')} | "
-                f"Market Cap: ${d.get('market_cap', 0)/1e9:.2f}B | Trailing P/E: {d.get('trailing_pe', 'N/A')} | "
+                f"Market Cap: ${d.get('market_cap', 0) / 1e9:.2f}B | Trailing P/E: {d.get('trailing_pe', 'N/A')} | "
                 f"Forward P/E: {d.get('forward_pe', 'N/A')} | Beta: {d.get('beta', 'N/A')} | "
                 f"52-Week Range: ${d.get('fifty_two_week_low', 'N/A')} - ${d.get('fifty_two_week_high', 'N/A')}"
             )

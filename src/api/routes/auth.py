@@ -18,14 +18,44 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # In-memory development users aligned with Asset Management roles.
 DEV_USERS = {
-    "analyst": {"password": "analyst123", "name": "Senior Equity Analyst", "role": "research_analyst", "department": "Fundamental Equities"},
-    "pm": {"password": "pm123", "name": "Lead Portfolio Manager", "role": "portfolio_manager", "department": "Global Asset Management"},
-    "compliance": {"password": "compliance123", "name": "Risk & Compliance Officer", "role": "risk_compliance", "department": "Investment Compliance"},
-    "admin": {"password": "admin123", "name": "Asset Management Lead Data Scientist", "role": "admin", "department": "Asset Management Data Science"},
+    "analyst": {
+        "password": "analyst123",
+        "name": "Senior Equity Analyst",
+        "role": "research_analyst",
+        "department": "Fundamental Equities",
+    },
+    "pm": {
+        "password": "pm123",
+        "name": "Lead Portfolio Manager",
+        "role": "portfolio_manager",
+        "department": "Global Asset Management",
+    },
+    "compliance": {
+        "password": "compliance123",
+        "name": "Risk & Compliance Officer",
+        "role": "risk_compliance",
+        "department": "Investment Compliance",
+    },
+    "admin": {
+        "password": "admin123",
+        "name": "Asset Management Lead Data Scientist",
+        "role": "admin",
+        "department": "Asset Management Data Science",
+    },
     # Backwards-compatibility accounts:
-    "finance": {"password": "finance123", "name": "Investment Associate", "role": "research_analyst", "department": "Fundamental Equities"},
+    "finance": {
+        "password": "finance123",
+        "name": "Investment Associate",
+        "role": "research_analyst",
+        "department": "Fundamental Equities",
+    },
     "hr": {"password": "hr123", "name": "Research Operations", "role": "hr", "department": "Research Operations"},
-    "clevel": {"password": "clevel123", "name": "Chief Investment Officer", "role": "portfolio_manager", "department": "Executive Investment Committee"},
+    "clevel": {
+        "password": "clevel123",
+        "name": "Chief Investment Officer",
+        "role": "portfolio_manager",
+        "department": "Executive Investment Committee",
+    },
 }
 
 

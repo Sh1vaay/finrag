@@ -5,6 +5,7 @@ instance over a configurable time window, broken down by user, model,
 and trace name. `/admin/users` and `/admin/roles` provide CRUD operations
 for users and dynamic RBAC roles.
 """
+
 import json
 import logging
 import os
@@ -37,9 +38,7 @@ def _require_admin(user: User) -> None:
         )
 
 
-async def _fetch_observations(
-    *, start_iso: str, end_iso: str, limit: int = 100
-) -> list[dict]:
+async def _fetch_observations(*, start_iso: str, end_iso: str, limit: int = 100) -> list[dict]:
     """Page through Langfuse's GENERATION observations within the window.
 
     Langfuse paginates at ~50 items/page; we keep walking until the response
@@ -203,6 +202,7 @@ async def admin_costs(
 
 # ── /admin/roles — dynamic RBAC role CRUD ──────────────────
 
+
 @router.get("/roles")
 async def list_roles_endpoint(user: User = Depends(get_current_user)):
     _require_admin(user)
@@ -248,6 +248,7 @@ async def delete_role_endpoint(name: str, user: User = Depends(get_current_user)
 
 
 # ── /admin/audit — recent queries timeline ───────────────
+
 
 @router.get("/audit")
 async def admin_audit(
@@ -309,17 +310,19 @@ async def admin_audit(
         query_preview = _trace_input_preview(t.get("input"))
         # Model: peek at the first observation's name; cheap and good enough
         model_hint = (t.get("name") or "").replace("litellm-", "")
-        events.append({
-            "trace_id": t.get("id"),
-            "timestamp": t.get("timestamp") or t.get("createdAt"),
-            "user_id": t.get("userId"),
-            "query": query_preview,
-            "model_hint": model_hint or None,
-            # Aggregate cost across the trace's observations (calculatedTotalCost
-            # on the trace itself sums them). Langfuse calls this `totalCost`.
-            "cost_usd": float(t.get("totalCost") or 0.0),
-            "latency_ms": t.get("latency"),  # in ms; null if not measured
-        })
+        events.append(
+            {
+                "trace_id": t.get("id"),
+                "timestamp": t.get("timestamp") or t.get("createdAt"),
+                "user_id": t.get("userId"),
+                "query": query_preview,
+                "model_hint": model_hint or None,
+                # Aggregate cost across the trace's observations (calculatedTotalCost
+                # on the trace itself sums them). Langfuse calls this `totalCost`.
+                "cost_usd": float(t.get("totalCost") or 0.0),
+                "latency_ms": t.get("latency"),  # in ms; null if not measured
+            }
+        )
 
     # Newest first; the public API usually returns this order but be explicit
     events.sort(key=lambda e: e["timestamp"] or "", reverse=True)
@@ -354,9 +357,7 @@ def _trace_input_preview(raw, max_chars: int = 200) -> str | None:
                     return content[:max_chars]
                 if isinstance(content, list):
                     # Anthropic-style content blocks; pull text parts
-                    text = " ".join(
-                        b.get("text", "") for b in content if isinstance(b, dict)
-                    )
+                    text = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
                     return text[:max_chars] or None
     # Case 2: list of messages
     if isinstance(raw, list):
@@ -372,6 +373,7 @@ def _trace_input_preview(raw, max_chars: int = 200) -> str | None:
 
 
 # ── /admin/evaluations — eval-snapshot time series ───────
+
 
 @router.get("/evaluations")
 async def admin_evaluations(user: User = Depends(get_current_user)):
@@ -394,8 +396,14 @@ async def admin_evaluations(user: User = Depends(get_current_user)):
     if not root.exists():
         return {"snapshots": [], "total": 0}
 
-    excludes = (".pipeline.json", ".ragas.json", ".deepeval.json", ".correctness.json",
-                ".review.json", "_manifest.json")
+    excludes = (
+        ".pipeline.json",
+        ".ragas.json",
+        ".deepeval.json",
+        ".correctness.json",
+        ".review.json",
+        "_manifest.json",
+    )
     snapshots: list[dict] = []
     candidates = list(root.glob("*.json"))
     for fp in sorted(candidates):
@@ -439,11 +447,7 @@ def _eval_snapshot_to_record(filename: str, path, data: dict) -> dict:
     diagnostics = _parse_or_dict(data.get("diagnostics"))
 
     # Strip benchmark/eval prefix and the .json suffix for the display label
-    label = (
-        filename.removeprefix("benchmark_")
-        .removeprefix("eval_")
-        .removesuffix(".json")
-    )
+    label = filename.removeprefix("benchmark_").removeprefix("eval_").removesuffix(".json")
 
     return {
         "filename": filename,

@@ -3,6 +3,7 @@
 The roles CRUD path is stubbed via patches against roles_service so the
 test runs hermetically — no Postgres dependency.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -29,6 +30,7 @@ def client():
 
 # ── /admin/users ──────────────────────────────────────────────────────────
 
+
 def test_users_list_admin_only(client):
     resp = client.get("/admin/users")
     assert resp.status_code in (401, 403)
@@ -49,11 +51,18 @@ def test_users_list_returns_dev_users(client):
 
 # ── /admin/roles GET ──────────────────────────────────────────────────────
 
+
 @patch("src.services.roles_service.list_roles")
 def test_roles_list_admin_only(mock_list, client):
     mock_list.return_value = [
-        {"name": "analyst", "allowed_doc_types": ["10k"], "allowed_confidentiality": ["public"],
-         "max_results": 5, "requires_hitl_above": None, "is_system": True},
+        {
+            "name": "analyst",
+            "allowed_doc_types": ["10k"],
+            "allowed_confidentiality": ["public"],
+            "max_results": 5,
+            "requires_hitl_above": None,
+            "is_system": True,
+        },
     ]
     resp = client.get("/admin/roles", headers={"Authorization": f"Bearer {_analyst_token()}"})
     assert resp.status_code == 403
@@ -65,14 +74,18 @@ def test_roles_list_admin_only(mock_list, client):
 
 # ── /admin/roles POST ─────────────────────────────────────────────────────
 
+
 @patch("src.services.roles_service.get_role")
 @patch("src.services.roles_service.create_role")
 def test_create_role_returns_201(mock_create, mock_get, client):
     mock_get.return_value = None
     mock_create.return_value = {
-        "name": "auditor", "allowed_doc_types": ["10k", "invoice"],
-        "allowed_confidentiality": ["public", "internal"], "max_results": 8,
-        "requires_hitl_above": None, "is_system": False,
+        "name": "auditor",
+        "allowed_doc_types": ["10k", "invoice"],
+        "allowed_confidentiality": ["public", "internal"],
+        "max_results": 8,
+        "requires_hitl_above": None,
+        "is_system": False,
     }
     resp = client.post(
         "/admin/roles",
@@ -106,14 +119,18 @@ def test_create_role_rejects_duplicate(mock_get, client):
 
 # ── /admin/roles PATCH ────────────────────────────────────────────────────
 
+
 @patch("src.services.roles_service.get_role")
 @patch("src.services.roles_service.update_role")
 def test_update_role_partial_patch(mock_update, mock_get, client):
     mock_get.return_value = {"name": "finance", "is_system": True}
     mock_update.return_value = {
-        "name": "finance", "allowed_doc_types": ["10k", "invoice"],
-        "allowed_confidentiality": ["public", "internal"], "max_results": 20,
-        "requires_hitl_above": 100_000, "is_system": True,
+        "name": "finance",
+        "allowed_doc_types": ["10k", "invoice"],
+        "allowed_confidentiality": ["public", "internal"],
+        "max_results": 20,
+        "requires_hitl_above": 100_000,
+        "is_system": True,
     }
     resp = client.patch(
         "/admin/roles/finance",
@@ -140,6 +157,7 @@ def test_update_role_404_when_missing(mock_get, client):
 
 
 # ── /admin/roles DELETE ───────────────────────────────────────────────────
+
 
 @patch("src.services.roles_service.delete_role")
 def test_delete_role_204_on_success(mock_delete, client):

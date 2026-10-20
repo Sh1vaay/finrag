@@ -3,7 +3,6 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 # Ensure root is on path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -11,14 +10,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 try:
     from src.config.settings import settings
 except ImportError:
+
     class _MockSettings:
         EMBEDDING_PROVIDER = "bge-m3"
         EMBEDDING_MODEL = "BAAI/bge-m3"
         EMBEDDING_DIMENSIONS = 1024
+
     settings = _MockSettings()
 
 import src.services.embeddings as emb_mod
-from src.services.embeddings import embed_text, embed_texts, _bgem3_embed
+from src.services.embeddings import _bgem3_embed, embed_text, embed_texts
 
 
 class TestEmbeddingsService(unittest.TestCase):

@@ -12,22 +12,21 @@ guidance on Model Risk Management for institutional AI and algorithmic investmen
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.config.rbac_config import get_permissions
+from src.graph.nodes.hitl_gate import _check_compliance_flags, _extract_max_amount
 from src.tools.calculator import CalculatorDisallowedError, compute
 from src.tools.decision_models import (
     calculate_altman_z_score,
-    calculate_factor_exposures,
     calculate_piotroski_f_score,
     calculate_portfolio_var_cvar,
     optimize_portfolio_weights,
 )
-from src.graph.nodes.hitl_gate import _check_compliance_flags, _extract_max_amount
-from src.config.rbac_config import get_permissions
 
 logger = logging.getLogger("mrg_validator")
 
@@ -49,12 +48,14 @@ class ModelRiskAuditor:
     def _record(self, section: str, test_name: str, passed: bool, details: str, evidence: Any = None) -> None:
         if section not in self.results["tests"]:
             self.results["tests"][section] = []
-        self.results["tests"][section].append({
-            "test_name": test_name,
-            "status": "PASSED" if passed else "FAILED",
-            "details": details,
-            "evidence": evidence,
-        })
+        self.results["tests"][section].append(
+            {
+                "test_name": test_name,
+                "status": "PASSED" if passed else "FAILED",
+                "details": details,
+                "evidence": evidence,
+            }
+        )
         self.results["summary"]["total_tests"] += 1
         if passed:
             self.results["summary"]["passed"] += 1
@@ -152,10 +153,17 @@ class ModelRiskAuditor:
         logger.info("Running Audit 4: Quantitative Model Invariants & Limits...")
 
         # 4.1 Altman Z-Score solvency zones
-        z_safe = calculate_altman_z_score({
-            "working_capital": 50.0, "retained_earnings": 100.0, "ebit": 40.0,
-            "market_equity": 500.0, "total_liabilities": 50.0, "sales": 120.0, "total_assets": 200.0,
-        })
+        z_safe = calculate_altman_z_score(
+            {
+                "working_capital": 50.0,
+                "retained_earnings": 100.0,
+                "ebit": 40.0,
+                "market_equity": 500.0,
+                "total_liabilities": 50.0,
+                "sales": 120.0,
+                "total_assets": 200.0,
+            }
+        )
         self._record(
             "Quantitative Model Invariants",
             "Altman Z-Score Safe Zone Classification (Z > 2.99)",
@@ -165,11 +173,19 @@ class ModelRiskAuditor:
         )
 
         # 4.2 Piotroski F-Score bounded 0-9
-        f_score_res = calculate_piotroski_f_score({
-            "net_income_current": 10.0, "net_income_prior": 8.0, "operating_cash_flow": 12.0,
-            "total_assets_current": 50.0, "total_assets_prior": 48.0, "gross_profit_current": 20.0,
-            "revenue_current": 40.0, "gross_profit_prior": 18.0, "revenue_prior": 38.0,
-        })
+        f_score_res = calculate_piotroski_f_score(
+            {
+                "net_income_current": 10.0,
+                "net_income_prior": 8.0,
+                "operating_cash_flow": 12.0,
+                "total_assets_current": 50.0,
+                "total_assets_prior": 48.0,
+                "gross_profit_current": 20.0,
+                "revenue_current": 40.0,
+                "gross_profit_prior": 18.0,
+                "revenue_prior": 38.0,
+            }
+        )
         self._record(
             "Quantitative Model Invariants",
             "Piotroski 9-Factor Bounded Evaluation",
@@ -253,33 +269,35 @@ class ModelRiskAuditor:
                 evidence_str = json.dumps(t["evidence"]) if t["evidence"] else "Verified"
                 lines.append(f"| **{section}** | {t['test_name']} | **{badge}** | `{evidence_str}` |")
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## 3. Operational Governance & Risk Mitigants",
-            "",
-            "### 3.1 Zero-Hallucination Deterministic Enforcement",
-            "All quantitative calculations (P/E, ROE, Altman Z, Portfolio VaR, Ledoit-Wolf optimization) are decoupled from generative model weights. "
-            "Evaluations occur within a sandboxed Python AST arithmetic engine and deterministic MCP tool execution pipeline.",
-            "",
-            "### 3.2 Storage-Layer Role-Based Access Control (RBAC)",
-            "Access permissions are enforced inside Qdrant vector payload queries prior to document retrieval. "
-            "Unauthorized records are structurally prevented from entering the model's context window.",
-            "",
-            "### 3.3 Human-in-the-Loop (HITL) Approval Gate",
-            "Mandate allocation orders referencing amounts > $100,000 or queries referencing Material Non-Public Information (MNPI), "
-            "Restricted Stock Lists, or trading blackout windows automatically invoke LangGraph `interrupt()`, halting graph execution until officer sign-off.",
-            "",
-            "---",
-            "",
-            "## 4. Attestation & Sign-Off",
-            "",
-            "- **Lead Model Developer**: FinRAG Quantitative Engineering Team",
-            "- **Model Risk Validation Status**: **APPROVED — SR 11-7 COMPLIANT**",
-            f"- **Next Annual Review Cycle**: October 2027",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 3. Operational Governance & Risk Mitigants",
+                "",
+                "### 3.1 Zero-Hallucination Deterministic Enforcement",
+                "All quantitative calculations (P/E, ROE, Altman Z, Portfolio VaR, Ledoit-Wolf optimization) are decoupled from generative model weights. "
+                "Evaluations occur within a sandboxed Python AST arithmetic engine and deterministic MCP tool execution pipeline.",
+                "",
+                "### 3.2 Storage-Layer Role-Based Access Control (RBAC)",
+                "Access permissions are enforced inside Qdrant vector payload queries prior to document retrieval. "
+                "Unauthorized records are structurally prevented from entering the model's context window.",
+                "",
+                "### 3.3 Human-in-the-Loop (HITL) Approval Gate",
+                "Mandate allocation orders referencing amounts > $100,000 or queries referencing Material Non-Public Information (MNPI), "
+                "Restricted Stock Lists, or trading blackout windows automatically invoke LangGraph `interrupt()`, halting graph execution until officer sign-off.",
+                "",
+                "---",
+                "",
+                "## 4. Attestation & Sign-Off",
+                "",
+                "- **Lead Model Developer**: FinRAG Quantitative Engineering Team",
+                "- **Model Risk Validation Status**: **APPROVED — SR 11-7 COMPLIANT**",
+                "- **Next Annual Review Cycle**: October 2027",
+                "",
+            ]
+        )
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:

@@ -16,6 +16,7 @@ from pathlib import Path
 # Ensure root directory is on pythonpath
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.graph.nodes.decision_engine import decision_engine_node
 from src.tools.decision_models import (
     DecisionModelError,
     calculate_altman_z_score,
@@ -26,7 +27,6 @@ from src.tools.decision_models import (
     evaluate_portfolio_trade_decision,
     optimize_portfolio_weights,
 )
-from src.graph.nodes.decision_engine import decision_engine_node
 
 
 def test_strong_piotroski_profile():
@@ -124,10 +124,26 @@ def test_distress_zone_corporate():
 
 def test_approved_rebalancing_trade():
     holdings = {
-        "AAPL": 14.5, "MSFT": 12.0, "NVDA": 9.5, "AMZN": 7.0, "GOOGL": 6.5,
-        "META": 5.0, "TSLA": 4.5, "BRK.B": 4.0, "JPM": 3.5, "V": 3.0,
-        "UNH": 3.0, "XOM": 2.5, "MA": 2.5, "PG": 2.5, "JNJ": 2.5,
-        "HD": 2.0, "ABBV": 2.0, "MRK": 2.0, "COST": 2.0, "AVGO": 1.5,
+        "AAPL": 14.5,
+        "MSFT": 12.0,
+        "NVDA": 9.5,
+        "AMZN": 7.0,
+        "GOOGL": 6.5,
+        "META": 5.0,
+        "TSLA": 4.5,
+        "BRK.B": 4.0,
+        "JPM": 3.5,
+        "V": 3.0,
+        "UNH": 3.0,
+        "XOM": 2.5,
+        "MA": 2.5,
+        "PG": 2.5,
+        "JNJ": 2.5,
+        "HD": 2.0,
+        "ABBV": 2.0,
+        "MRK": 2.0,
+        "COST": 2.0,
+        "AVGO": 1.5,
     }
     res = evaluate_portfolio_trade_decision(
         holdings=holdings,

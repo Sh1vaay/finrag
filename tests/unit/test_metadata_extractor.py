@@ -2,6 +2,7 @@ try:
     import pytest
 except ImportError:
     pytest = None
+import sys
 from pathlib import Path
 
 from src.ingestion.metadata_extractor import (
@@ -11,10 +12,10 @@ from src.ingestion.metadata_extractor import (
     extract_metadata,
 )
 
-
 # ---------------------------------------------------------------------------
 # _detect_doc_type tests
 # ---------------------------------------------------------------------------
+
 
 def test_detect_doc_type_10k_in_filename():
     """Filenames containing '10-k' or '10k' patterns are detected as '10k'."""
@@ -64,6 +65,7 @@ def test_detect_doc_type_returns_unknown_for_unrecognized():
 # _extract_company tests (legacy — returns display name)
 # ---------------------------------------------------------------------------
 
+
 def test_extract_company_from_filename():
     """Company display name is extracted when the slug appears in the filename."""
     result = _extract_company("apple_10k_2024", "")
@@ -92,6 +94,7 @@ def test_extract_company_returns_unknown_when_no_match():
 # _extract_company_slug tests — the version used for Qdrant payload filtering
 # ---------------------------------------------------------------------------
 
+
 def test_extract_company_slug_apple():
     assert _extract_company_slug("apple_10k_2024", "") == "apple"
 
@@ -107,6 +110,7 @@ def test_extract_company_slug_returns_unknown_when_no_match():
 # ---------------------------------------------------------------------------
 # Confidentiality detection (tested via extract_metadata since it is inline)
 # ---------------------------------------------------------------------------
+
 
 def test_confidentiality_detects_confidential():
     """Text containing 'confidential' results in 'internal' confidentiality."""
@@ -133,6 +137,7 @@ def test_confidentiality_defaults_to_public():
 # extract_metadata integration tests
 # ---------------------------------------------------------------------------
 
+
 def test_extract_metadata_uses_doc_type_override():
     """When doc_type_override is provided, it takes precedence over detection."""
     doc = {"text": "This is an internal equity research memo."}
@@ -145,10 +150,16 @@ def test_extract_metadata_returns_complete_dict():
     doc = {"text": "Apple Inc. annual report for fiscal year.", "num_pages": 42}
     result = extract_metadata(Path("apple_10k_2024.pdf"), doc)
 
-    required_keys = {"doc_type", "company", "company_name", "confidentiality", "source_file", "num_pages", "fiscal_year"}
-    assert required_keys == set(result.keys()), (
-        f"Missing keys: {required_keys - set(result.keys())}"
-    )
+    required_keys = {
+        "doc_type",
+        "company",
+        "company_name",
+        "confidentiality",
+        "source_file",
+        "num_pages",
+        "fiscal_year",
+    }
+    assert required_keys == set(result.keys()), f"Missing keys: {required_keys - set(result.keys())}"
     assert result["doc_type"] == "10k"
     assert result["company"] == "apple"  # slug for filtering
     assert result["company_name"] == "Apple Inc."  # display name
@@ -173,10 +184,10 @@ def test_extract_metadata_num_pages_defaults_to_zero():
 
 if __name__ == "__main__":
     import inspect
+
     current_module = sys.modules[__name__] if "sys" in globals() else __import__("sys").modules[__name__]
     test_funcs = [
-        obj for name, obj in inspect.getmembers(current_module)
-        if inspect.isfunction(obj) and name.startswith("test_")
+        obj for name, obj in inspect.getmembers(current_module) if inspect.isfunction(obj) and name.startswith("test_")
     ]
     print(f"Running {len(test_funcs)} metadata extractor unit tests...")
     passed = 0
@@ -188,4 +199,3 @@ if __name__ == "__main__":
             print(f"FAILED: {fn.__name__} - {e}")
             raise
     print(f"All {passed}/{len(test_funcs)} tests passed successfully!")
-

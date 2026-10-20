@@ -21,7 +21,7 @@ def _format_history(messages: list, max_turns: int = 3) -> str:
     if not prior:
         return ""
     # Keep only the last max_turns*2 messages (human+ai pairs)
-    recent = prior[-(max_turns * 2):]
+    recent = prior[-(max_turns * 2) :]
     lines = []
     for msg in recent:
         if isinstance(msg, HumanMessage):
@@ -82,7 +82,11 @@ def guardrails_node(state: RAGState) -> dict:
     if pii_entities:
         logger.warning(f"PII detected and redacted: {[e['type'] for e in pii_entities]}")
 
-    blocked = {"guardrail_status": "injection_detected", "sanitized_query": sanitized_query, "detected_pii_entities": pii_entities}
+    blocked = {
+        "guardrail_status": "injection_detected",
+        "sanitized_query": sanitized_query,
+        "detected_pii_entities": pii_entities,
+    }
 
     # --- Layer 1: Regex (cheapest) ---
     if check_injection_regex(query):

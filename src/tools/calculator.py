@@ -18,6 +18,7 @@ Design constraints:
 API:
     compute(expression: str) -> float       # raises CalculatorError on failure
 """
+
 from __future__ import annotations
 
 import ast
@@ -81,15 +82,11 @@ def compute(expression: str) -> float:
         CalculatorRuntimeError: division by zero, inf/nan result, etc.
     """
     if not isinstance(expression, str):
-        raise CalculatorParseError(
-            f"expected str, got {type(expression).__name__}"
-        )
+        raise CalculatorParseError(f"expected str, got {type(expression).__name__}")
     if not expression.strip():
         raise CalculatorParseError("empty expression")
     if len(expression) > MAX_EXPRESSION_LEN:
-        raise CalculatorParseError(
-            f"expression too long ({len(expression)} chars > {MAX_EXPRESSION_LEN})"
-        )
+        raise CalculatorParseError(f"expression too long ({len(expression)} chars > {MAX_EXPRESSION_LEN})")
 
     cleaned = _THOUSAND_SEP_RE.sub("", expression)
 
@@ -108,9 +105,7 @@ def compute(expression: str) -> float:
         raise CalculatorRuntimeError(f"{type(e).__name__}: {e}") from e
 
     if isinstance(result, bool) or not isinstance(result, (int, float)):
-        raise CalculatorRuntimeError(
-            f"non-numeric result: {type(result).__name__}"
-        )
+        raise CalculatorRuntimeError(f"non-numeric result: {type(result).__name__}")
     if isinstance(result, float) and (math.isinf(result) or math.isnan(result)):
         raise CalculatorRuntimeError(f"non-finite result: {result}")
 
@@ -134,17 +129,12 @@ def _validate(tree: ast.Expression) -> None:
     """
     for node in ast.walk(tree):
         if not isinstance(node, _ALLOWED_NODES):
-            raise CalculatorDisallowedError(
-                f"node type {type(node).__name__} not allowed"
-            )
+            raise CalculatorDisallowedError(f"node type {type(node).__name__} not allowed")
         if isinstance(node, ast.Constant):
             # bool is a subtype of int — reject it explicitly so True/False
             # don't slip through as numeric literals.
             if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
-                raise CalculatorDisallowedError(
-                    f"constant must be int or float, got "
-                    f"{type(node.value).__name__}"
-                )
+                raise CalculatorDisallowedError(f"constant must be int or float, got {type(node.value).__name__}")
 
 
 def _eval(node: ast.AST) -> int | float:

@@ -132,14 +132,16 @@ def chunk_document(document: dict, metadata: dict) -> list[dict]:
 
     result = []
     for i, chunk_text in enumerate(chunks):
-        result.append({
-            "content": prefix + chunk_text,
-            "raw_content": chunk_text,
-            "metadata": {
-                **metadata,
-                "chunk_index": i,
-            },
-        })
+        result.append(
+            {
+                "content": prefix + chunk_text,
+                "raw_content": chunk_text,
+                "metadata": {
+                    **metadata,
+                    "chunk_index": i,
+                },
+            }
+        )
 
     return result
 
@@ -201,11 +203,13 @@ def _chunk_with_docling(docling_doc, metadata: dict) -> list[dict]:
         prefix = _build_context_prefix(metadata, page_number=page_number)
         chunk_text = getattr(chunk, "text", "") or ""
 
-        result.append({
-            "content": prefix + chunk_text,
-            "raw_content": chunk_text,
-            "metadata": chunk_meta,
-        })
+        result.append(
+            {
+                "content": prefix + chunk_text,
+                "raw_content": chunk_text,
+                "metadata": chunk_meta,
+            }
+        )
 
     return result
 
@@ -353,11 +357,13 @@ def _chunk_with_docling_markdown(docling_doc, metadata: dict) -> list[dict]:
         chunk_meta["chunk_type"] = chunk_type
 
         prefix = _build_context_prefix(metadata, page_number=page_number)
-        chunks.append({
-            "content": prefix + chunk_text,
-            "raw_content": chunk_text,
-            "metadata": chunk_meta,
-        })
+        chunks.append(
+            {
+                "content": prefix + chunk_text,
+                "raw_content": chunk_text,
+                "metadata": chunk_meta,
+            }
+        )
         pending_blocks = []
         pending_len = 0
 
@@ -415,15 +421,17 @@ def _chunk_per_page(pages: list[dict], metadata: dict) -> list[dict]:
         prefix = _build_context_prefix(metadata, page_number=page_number)
         page_chunks = _recursive_split(page_text, chunk_size=MAX_CHUNK_CHARS, overlap=OVERLAP_CHARS)
         for chunk_text in page_chunks:
-            result.append({
-                "content": prefix + chunk_text,
-                "raw_content": chunk_text,
-                "metadata": {
-                    **metadata,
-                    "chunk_index": chunk_index,
-                    "page_number": page_number,
-                },
-            })
+            result.append(
+                {
+                    "content": prefix + chunk_text,
+                    "raw_content": chunk_text,
+                    "metadata": {
+                        **metadata,
+                        "chunk_index": chunk_index,
+                        "page_number": page_number,
+                    },
+                }
+            )
             chunk_index += 1
     return result
 

@@ -9,13 +9,11 @@ import socket
 import subprocess
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from cli.doctor import checks
 from cli.doctor.types import Status, Tier
 
-
 # --- System checks ---------------------------------------------------------
+
 
 def test_platform_returns_info():
     r = checks.check_platform()
@@ -75,16 +73,17 @@ def test_git_missing(_which):
 
 # --- Resources -------------------------------------------------------------
 
+
 def test_disk_space_pass(tmp_path, monkeypatch):
     # Mock shutil.disk_usage to return >= 6 GB free
-    fake = MagicMock(free=10 * (1024 ** 3), total=100 * (1024 ** 3), used=90 * (1024 ** 3))
+    fake = MagicMock(free=10 * (1024**3), total=100 * (1024**3), used=90 * (1024**3))
     monkeypatch.setattr(checks.shutil, "disk_usage", lambda _: fake)
     r = checks.check_disk_space(min_free_gb=6.0)
     assert r.status == Status.PASS
 
 
 def test_disk_space_fail(monkeypatch):
-    fake = MagicMock(free=2 * (1024 ** 3), total=100 * (1024 ** 3), used=98 * (1024 ** 3))
+    fake = MagicMock(free=2 * (1024**3), total=100 * (1024**3), used=98 * (1024**3))
     monkeypatch.setattr(checks.shutil, "disk_usage", lambda _: fake)
     r = checks.check_disk_space(min_free_gb=6.0)
     assert r.status == Status.FAIL
@@ -93,6 +92,7 @@ def test_disk_space_fail(monkeypatch):
 
 
 # --- Ports -----------------------------------------------------------------
+
 
 def test_port_free():
     # Use a high random port that's almost certainly free
@@ -132,9 +132,7 @@ def test_port_blocked_by_own_stack_reports_pass():
     port = s.getsockname()[1]
     s.listen(1)
     try:
-        with patch(
-            "cli.doctor.checks._find_own_stack_container", return_value="repo-api-1"
-        ):
+        with patch("cli.doctor.checks._find_own_stack_container", return_value="repo-api-1"):
             r = checks.check_port_free(port, "api", blocking=True)
         assert r.status == Status.PASS
         assert "repo-api-1" in r.summary
@@ -169,9 +167,7 @@ def test_find_own_stack_container_handles_port_range_format():
     """Docker collapses adjacent published ports into a range — the actual
     format M1 test9 produced for qdrant. Pre-0.2.0 our substring matcher
     missed `:6333->` because the string was `:6333-6334->`."""
-    fake_output = (
-        "repo-qdrant-1\t0.0.0.0:6333-6334->6333-6334/tcp, [::]:6333-6334->6333-6334/tcp\n"
-    )
+    fake_output = "repo-qdrant-1\t0.0.0.0:6333-6334->6333-6334/tcp, [::]:6333-6334->6333-6334/tcp\n"
     with (
         patch("cli.doctor.checks.shutil.which", return_value="/usr/local/bin/docker"),
         patch("cli.doctor.checks.subprocess.check_output", return_value=fake_output),
@@ -185,9 +181,7 @@ def test_find_own_stack_container_handles_port_range_format():
 def test_published_ports_parses_common_formats():
     """Direct unit test of the helper for clarity on what each input maps to."""
     assert checks._published_ports("0.0.0.0:8000->8000/tcp") == {8000}
-    assert checks._published_ports(
-        "0.0.0.0:6333-6334->6333-6334/tcp, [::]:6333-6334->6333-6334/tcp"
-    ) == {6333, 6334}
+    assert checks._published_ports("0.0.0.0:6333-6334->6333-6334/tcp, [::]:6333-6334->6333-6334/tcp") == {6333, 6334}
     assert checks._published_ports("0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp") == {5432}
     # Unpublished port — no `->` in entry
     assert checks._published_ports("6333/tcp") == set()
@@ -214,6 +208,7 @@ def test_find_own_stack_container_handles_docker_error():
 
 # --- Network ---------------------------------------------------------------
 
+
 def test_url_reachable_pass():
     fake_response = MagicMock(status_code=200)
     with patch("httpx.head", return_value=fake_response):
@@ -231,6 +226,7 @@ def test_url_reachable_fail():
 def test_cli_version_uses_cache_when_fresh(tmp_path):
     cache = tmp_path / "version_check.json"
     import time as _time
+
     cache.write_text(json.dumps({"timestamp": _time.time(), "latest": "99.99.99"}))
     with patch("httpx.get") as mock_get:
         r = checks.check_cli_version(cache_file=cache)
@@ -244,6 +240,7 @@ def test_cli_version_fetches_when_cache_stale(tmp_path, monkeypatch):
     cache = tmp_path / "version_check.json"
     fake_response = MagicMock(status_code=200)
     from cli import __version__ as current
+
     fake_response.json.return_value = {"info": {"version": current}}
     with patch("httpx.get", return_value=fake_response):
         r = checks.check_cli_version(cache_file=cache)
@@ -263,8 +260,10 @@ def test_cli_version_handles_pypi_unreachable(tmp_path):
 
 # --- run_all_checks integration -------------------------------------------
 
+
 def test_run_all_checks_skip_network_excludes_network_targets():
     from cli.doctor import run_all_checks
+
     # Skip network so we don't make real http calls in this test
     results = run_all_checks(skip_network=True)
     names = [r.name for r in results]
@@ -278,6 +277,7 @@ def test_run_all_checks_skip_network_excludes_network_targets():
 
 def test_run_all_checks_records_elapsed_per_check():
     from cli.doctor import run_all_checks
+
     results = run_all_checks(skip_network=True)
     # Every result should have a non-negative elapsed_ms set by the wrapper
     for r in results:

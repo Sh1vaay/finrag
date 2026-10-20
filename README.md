@@ -55,104 +55,258 @@ Front-office investment analysts, risk officers, and portfolio managers face fou
 
 ## System Architecture
 
+FinRAG is structured around an institutional, multi-layered architecture designed for sub-second financial reasoning, deterministic mathematical accuracy, and strict fiduciary information barriers.
+
+### Architectural Component Decomposition
+
 ```mermaid
 flowchart TD
-    subgraph ClientSurface["Client & Protocol Surface"]
-        CLI["finrag CLI (Interactive TUI / Textual)"]
-        ClaudeDesktop["Claude Desktop / External LLM (MCP)"]
-        ThirdParty["Front-Office UI / Quantitative Scripts"]
+    %% ==========================================
+    %% 1. CLIENT & PROTOCOL LAYER
+    %% ==========================================
+    subgraph FrontendComponents["1. Frontend & Client Surface"]
+        CLI["finrag CLI\n(Typer · Prompt Toolkit · Rich TUI · Slash Commands)"]
+        ClaudeDesktop["Claude Desktop / External LLM\n(Model Context Protocol JSON-RPC Client)"]
+        WebDashboard["Front-Office UI / BI Systems\n(REST & SSE API Consumers)"]
     end
 
-    subgraph APIGateway["FastAPI Gateway & Security Layer"]
-        FastAPIApp["FastAPI Application (/v1)"]
-        JWTAuth["HS256 Timing-Safe JWT Authenticator"]
-        RBACGate["Storage & Memory RBAC Filter"]
-        Guardrails["3-Tier Guardrails (Regex + ONNX + spaCy PII)"]
+    %% ==========================================
+    %% 2. API & GATEWAY LAYER
+    %% ==========================================
+    subgraph APIGatewayLayer["2. API Gateway & Ingress Layer (/v1)"]
+        FastAPIApp["FastAPI Application Gateway\n(Asynchronous Uvicorn / ASGI Server)"]
+        LiteLLMGateway["LiteLLM Proxy & Load Balancer\n(Provider Router & Semantic Cache)"]
+        
+        subgraph Endpoints["Exposed REST & RPC Endpoints"]
+            AuthEP["/v1/auth (login, me)"]
+            ChatEP["/v1/chat (SSE streaming, sync)"]
+            HITLEP["/v1/approvals (review, approve)"]
+            DocsEP["/v1/documents (PDF citations)"]
+            IngestEP["/v1/ingest (upload, vectorize)"]
+            MCPEP["/v1/mcp (JSON-RPC 2.0 tools)"]
+            AdminEP["/v1/admin (audit, roles, costs)"]
+        end
     end
 
-    subgraph CognitiveLayer["Dual-System Cognitive Architecture"]
-        Sys1["System 1 Decider 2B SLM (<50ms Fast Triage)"]
-        Sys2Router["System 2 Adaptive Router (Groq LLaMA-3.3-70B)"]
+    %% ==========================================
+    %% 3. SECURITY & BACKEND SERVICES
+    %% ==========================================
+    subgraph BackendServices["3. Core Backend Services & Guardrails"]
+        AuthService["Auth & RBAC Service\n(Timing-Safe HS256 JWT & Role Claims)"]
+        
+        subgraph GuardrailCascade["3-Tier Guardrails Cascade"]
+            G_L1["Layer 1: Heuristic Regex\n(Prompt Injection & Keyword Filter)"]
+            G_L2["Layer 2: ONNX Runtime Scanner\n(CPU-Optimized LLM Guard Scanner)"]
+            G_L3["Layer 3: Presidio & spaCy NER\n(PII Detection & Deanonymization)"]
+        end
+
+        CognitiveTriage["Dual-System Cognitive Triage"]
+        subgraph TriageEngines["Cognitive Triage Engines"]
+            Sys1["System 1: Strand Decider 2B SLM\n(Sub-50ms Fast Intent Classifier)"]
+            Sys2["System 2: Groq LLaMA-3.3-70B\n(Adaptive Decomposing Router)"]
+        end
+
+        QuantService["Deterministic Quantitative Decision Engine\n(AST Sandbox · Covariance Shrinkage · VaR/CVaR)"]
+        IngestionService["Document Ingestion & Contextual Chunker\n(FastEmbed BM25 · Dense Vectorizer · Docling)"]
     end
 
-    subgraph LangGraphTopology["LangGraph 20-Node Orchestration Engine"]
-        DirectResp["Direct / Out-of-Scope Responders"]
-        ResearchAgent["Multi-Agent Subgraph (Planner + Sufficiency)"]
-        RetrievalLoop["Hybrid Retrieval (RRF k=60) -> BGE Reranker -> Grader -> Rewriter"]
-        QuantEngine["AST Sandbox & Deterministic Quant Models"]
-        MCPBridge["MCP JSON-RPC 2.0 Execution Bridge"]
-        Synthesis["Grounded Synthesis (Claude Sonnet 4.6 / GPT-4o)"]
-        Hallucination["Hallucination & Citation Verifier"]
-        HITLInterrupt["HITL Fiduciary Gate (LangGraph interrupt)"]
+    %% ==========================================
+    %% 4. LANGGRAPH 20-NODE ORCHESTRATION ENGINE
+    %% ==========================================
+    subgraph LangGraphDAG["4. LangGraph 20-Node Orchestration Engine"]
+        StartNode(["START"])
+        RBACGateNode["rbac_gate"]
+        GuardNode["guardrails"]
+        ExtractorNode["entity_extractor"]
+        RouterNode{"router\n(System 1 / 2)"}
+        
+        %% Branches
+        DirectNode["direct_response\n/ terminal_nodes"]
+        MCPToolsNode["mcp_tools\n(Tool Execution)"]
+        ResearchNode["research_agent\n(Sub-query Decompose)"]
+        
+        subgraph RetrievalLoop["Adaptive Retrieval Loop"]
+            RetrievalNode["retrieval\n(Hybrid RRF k=60)"]
+            RerankNode["reranker\n(BGE Cross-Encoder)"]
+            EvalNode["retrieval_evaluator\n(LTR Gating)"]
+            GraderNode["grader\n(3-Stage Relevancy)"]
+            RewriterNode["query_rewriter\n(Context Reformulation)"]
+        end
+
+        DecisionNode["decision_engine\n(Quantitative Models)"]
+        GeneratorNode["generator\n(Grounded Claude Sonnet)"]
+        HallucinationNode["hallucination_checker\n(Faithfulness Audit)"]
+        HITLNode{"hitl_gate\n(Fiduciary Check)"}
+        FormatterNode["response_formatter\n(Audited Citations)"]
+        EndNode(["END"])
     end
 
-    subgraph StorageSubstrate["Storage Substrate & External Integrations"]
-        QdrantDB[("Qdrant Hybrid Vector DB (HNSW + BM25)")]
-        RedisCache[("Redis 7.2 (Result & Semantic Cache)")]
-        PostgresDB[("PostgreSQL 16 (LangGraph Checkpoints & RBAC)")]
-        SEC_EDGAR["SEC EDGAR XBRL Audited API"]
-        BPIPE_Feed["Institutional Market Data Feed (B-PIPE / yfinance)"]
+    %% ==========================================
+    %% 5. DATABASE & STORAGE SUBSTRATE
+    %% ==========================================
+    subgraph DatabaseLayer["5. Database & Storage Substrate"]
+        QdrantDB[("Qdrant Vector Database\n- Dense Vectors (1536-dim)\n- BM25 Sparse Vectors\n- Storage-Layer RBAC Payload Filters")]
+        PostgresDB[("PostgreSQL 16 Database\n- LangGraph Thread State Checkpoints\n- System Roles & Entitlements\n- Conversation History")]
+        RedisCache[("Redis 7.2 Database\n- Sub-Component Result Cache (TTL 7d)\n- LiteLLM Semantic Cache")]
     end
 
-    subgraph ObservabilityStack["Institutional MLOps & Observability"]
-        Phoenix["Arize Phoenix (OTel Traces & Spans)"]
-        Langfuse["Langfuse v3 (Per-User Cost Attribution)"]
-        AuditLog["Append-Only JSONL Audit Ledger"]
+    %% ==========================================
+    %% 6. EXTERNAL INTEGRATIONS & PROVIDERS
+    %% ==========================================
+    subgraph ExternalIntegrations["6. External Integrations & Model APIs"]
+        SEC_EDGAR["SEC EDGAR XBRL Audited API\n(CIK Resolver · 10-K/10-Q Cache)"]
+        MarketDataFeed["Institutional Market Data Feed\n(B-PIPE / FactSet Simulation & yfinance)"]
+        AnthropicAPI["Anthropic API\n(Claude Sonnet 4.6 / Haiku 4.5)"]
+        OpenAIAPI["OpenAI API\n(GPT-4o / GPT-4o-mini / Embeddings)"]
+        GroqAPI["Groq Cloud API\n(LLaMA-3.3-70B Fast-Path)"]
+        LocalSLM["Local SLM Host\n(Ollama / vLLM Endpoint)"]
     end
 
-    ClientSurface --> APIGateway
-    APIGateway --> CognitiveLayer
-    CognitiveLayer --> LangGraphTopology
-    LangGraphTopology <--> StorageSubstrate
-    LangGraphTopology --> ObservabilityStack
-    HITLInterrupt <--> PostgresDB
+    %% ==========================================
+    %% 7. MLOPS & OBSERVABILITY
+    %% ==========================================
+    subgraph ObservabilityStack["7. Enterprise MLOps & Observability"]
+        Phoenix["Arize Phoenix\n(OpenTelemetry Distributed Traces & Spans)"]
+        Langfuse["Langfuse v3\n(Per-User Token & Cost Attribution)"]
+        AuditLedger["Audit Trail Ledger\n(Append-Only JSONL Event Logs)"]
+    end
+
+    %% Connections
+    FrontendComponents --> APIGatewayLayer
+    APIGatewayLayer --> BackendServices
+    BackendServices --> LangGraphDAG
+    
+    %% Ingress to DAG
+    StartNode --> RBACGateNode --> GuardNode --> ExtractorNode --> RouterNode
+    RouterNode -->|Direct Lookup| DirectNode --> EndNode
+    RouterNode -->|Quantitative Tool| MCPToolsNode --> DecisionNode
+    RouterNode -->|Multi-Hop Research| ResearchNode --> DecisionNode
+    RouterNode -->|Document Retrieval| RetrievalNode
+    
+    RetrievalNode --> RerankNode --> EvalNode --> GraderNode
+    GraderNode -->|Relevant Chunks| DecisionNode
+    GraderNode -->|Needs Refinement| RewriterNode --> RetrievalNode
+    
+    DecisionNode --> GeneratorNode --> HallucinationNode --> HITLNode
+    HITLNode -->|Approved / Low Risk| FormatterNode --> EndNode
+    HITLNode -->|High Stakes Interrupt| PostgresDB
+    
+    %% Storage & Integrations
+    RetrievalNode <--> QdrantDB
+    IngestionService --> QdrantDB
+    LangGraphDAG <--> PostgresDB
+    LangGraphDAG <--> RedisCache
+    QuantService <--> MarketDataFeed
+    QuantService <--> SEC_EDGAR
+    GeneratorNode <--> AnthropicAPI
+    ResearchNode <--> OpenAIAPI
+    RouterNode <--> GroqAPI
+    Sys1 <--> LocalSLM
+    
+    %% Observability
+    FastAPIApp --> AuditLedger
+    LangGraphDAG --> Phoenix
+    LangGraphDAG --> Langfuse
+```
+
+---
+
+## Authentication & Authorization Flow
+
+FinRAG implements timing-safe authentication and strict storage-level Role-Based Access Control (RBAC). Document entitlements are applied directly to Qdrant vector database query filters, guaranteeing that unauthorized chunks are physically omitted from vector index traversals and never enter the LLM context window.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client (CLI / Front-Office UI)
+    participant Auth as POST /v1/auth/login
+    participant AuthService as AuthService
+    participant RolesDB as PostgreSQL (roles table)
+    participant API as Authenticated API (/v1/chat)
+    participant Qdrant as Qdrant Hybrid Storage
+
+    User->>Auth: Submit username & password
+    Auth->>AuthService: Timing-safe credential verification
+    AuthService->>RolesDB: Query role entitlements (allowed_doc_types, confidentiality, limits)
+    RolesDB-->>AuthService: Return role permission matrix
+    AuthService-->>Auth: Issue HS256 JWT Token (Claims: user_id, role, department, exp)
+    Auth-->>User: TokenResponse (access_token, user metadata, permissions)
+
+    Note over User,API: Subsequent requests attach Authorization: Bearer <JWT> header
+
+    User->>API: POST /v1/chat (Financial Query + Bearer JWT)
+    API->>AuthService: Decode & verify token signature + expiration
+    AuthService-->>API: Active user context (Role: portfolio_manager, Dept: Asset Management)
+    
+    API->>Qdrant: Build storage payload filter based on user role
+    Note over Qdrant: Filter: doc_type in ['10k', '10q', 'portfolio_holdings']<br/>AND confidentiality in ['public', 'internal', 'confidential']
+    Qdrant-->>API: Return physically entitled document candidate chunks only
 ```
 
 ---
 
 ## Request Lifecycle & Data Flow
 
+Every investment research query follows an audited multi-stage path with 3-tier security screening, dual-system cognitive triage, deterministic mathematical offloading, hallucination verification, and human-in-the-loop authorization gates.
+
 ```mermaid
 sequenceDiagram
     autonumber
     actor Analyst as Buy-Side Analyst
     participant API as FastAPI Gateway
-    participant Guard as Safety & RBAC Layer
-    participant Sys1 as System 1 SLM Triage
-    participant Graph as LangGraph Engine
-    participant Vector as Qdrant & BGE Reranker
-    participant Quant as Deterministic Quant Engine
+    participant Guard as Safety & Guardrails Cascade
+    participant Sys1 as System 1 SLM Triage (Strand 2B)
+    participant Graph as LangGraph 20-Node DAG
+    participant Retrieval as Hybrid Retrieval & BGE Reranker
+    participant Quant as Deterministic Decision Suite
     participant Gen as Claude Sonnet Generator
+    participant Verifier as Hallucination & Citation Checker
     participant HITL as HITL Fiduciary Gate
     actor PM as Portfolio Manager (Approver)
 
-    Analyst->>API: POST /v1/chat (Query + Bearer JWT)
-    API->>Guard: Validate HS256 Token & Entitlements
-    alt Injection / PII / Unauthorized Scope
-        Guard-->>API: 403 Forbidden or Sanitized Error
+    Analyst->>API: POST /v1/chat (Financial Query + Bearer JWT)
+    API->>Guard: Validate HS256 Token & Role Entitlements
+    
+    rect rgb(240, 248, 255)
+        Note over Guard: 3-Tier Security Screening
+        Guard->>Guard: Layer 1: Heuristic Regex Prompt Injection Check
+        Guard->>Guard: Layer 2: ONNX Runtime CPU Scanner (LLM Guard)
+        Guard->>Guard: Layer 3: Presidio / spaCy PII Analyzer & Anonymizer
+    end
+
+    alt Malicious Injection or Policy Breach
+        Guard-->>API: 403 Forbidden / Sanitized Rejection
         API-->>Analyst: Structured Security Rejection
     else Clean Query
-        Guard->>Sys1: Fast-Path Complexity Triage (<50ms)
-        alt Mathematical / Quantitative Tool Call
-            Sys1->>Quant: AST Sandbox Execution (VaR, Ledoit-Wolf, Altman Z)
-            Quant-->>Graph: Verified Matrix Calculation + SR 11-7 Metadata
+        Guard->>Sys1: Fast-Path Intent & Complexity Triage (<50ms)
+        
+        alt Quantitative / Arithmetic Request
+            Sys1->>Quant: AST-Sandboxed Quantitative Engine
+            Note over Quant: Calculate VaR / CVaR, Ledoit-Wolf Shrinkage, Altman Z'', Factor OLS
+            Quant-->>Graph: Verified Math Output + SR 11-7 Metadata
         else Deep Filings Research & Multi-Hop Query
-            Sys1->>Graph: LangGraph 20-Node Research Pipeline
-            Graph->>Vector: Hybrid Dense + BM25 Search (Top-50)
-            Vector-->>Graph: BGE Cross-Encoder Reranked Top-8 Candidates
+            Sys1->>Graph: LangGraph Multi-Agent Research Topology
+            Graph->>Retrieval: Hybrid Search (Dense 1536-dim + BM25 Sparse, Top-50)
+            Retrieval-->>Graph: BGE-Reranker-v2-m3 Cross-Encoder Candidates (Top-8)
+            Graph->>Graph: 3-Stage Document Relevance Grader
             Graph->>Gen: Synthesize Response with Audited Citations
-            Gen-->>Graph: Grounded Draft Response
+            Gen-->>Graph: Grounded Candidate Answer
         end
-        Graph->>HITL: Fiduciary Risk Check ($100k+ / MNPI / Blackout List)
-        alt Fiduciary Threshold Exceeded
-            HITL->>Graph: LangGraph interrupt() & Save Checkpoint to PostgreSQL
-            Graph-->>API: Status 200 OK (pending_approval)
-            API-->>Analyst: Query Paused: Awaiting PM Review
-            PM->>API: POST /v1/hitl/approve (Thread ID + Authorization)
-            API->>Graph: Resume Execution from PostgreSQL State
+
+        Graph->>Verifier: Hallucination & Faithfulness Audit
+        Verifier-->>Graph: Citation Verified & Numerically Grounded
+
+        Graph->>HITL: Fiduciary Risk Check ($100k+ / MNPI / Restricted List)
+        alt Fiduciary Threshold Exceeded ($100k+ or Restricted Keyword)
+            HITL->>Graph: Trigger interrupt() & Save Frozen State to PostgreSQL
+            Graph-->>API: Status 200 OK (paused: pending_approval)
+            API-->>Analyst: Query Paused: Awaiting Portfolio Manager Authorization
+            PM->>API: POST /v1/hitl/approve (Thread ID + PM Authorization)
+            API->>Graph: Resume Execution from PostgreSQL Checkpoint
         end
-        Graph-->>API: Formatted Answer + Audited Source Citations
-        API-->>Analyst: SSE Token Stream or JSON ChatResponse
+
+        Graph-->>API: Formatted Answer + Audited Source Citations + Latency/Cost
+        API-->>Analyst: Server-Sent Events (SSE) Token Stream or JSON ChatResponse
     end
 ```
 

@@ -16,6 +16,7 @@ Scope of each test:
 Tests skip cleanly when their backing service is down so the integration
 suite remains runnable in environments without Docker.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -28,6 +29,7 @@ from src.services.auth_service import create_token
 def _postgres_alive() -> bool:
     try:
         import psycopg
+
         from src.config.settings import settings
 
         conn = psycopg.connect(
@@ -80,6 +82,7 @@ def client():
 
 # ─── /auth/login + /auth/me — needs no external service ──────────────────
 
+
 def test_auth_login_to_me_roundtrip_happy_path(client):
     """Full handshake: POST /auth/login → use returned token to GET /auth/me.
     Verifies the JWT actually validates against the live decode path.
@@ -109,6 +112,7 @@ def test_auth_me_401_with_garbage_token(client):
 
 # ─── /admin/users — DB-free, just hits in-memory DEV_USERS ───────────────
 
+
 def test_admin_users_401_no_token(client):
     resp = client.get("/admin/users")
     assert resp.status_code in (401, 403)
@@ -127,6 +131,7 @@ def test_admin_users_200_for_admin(client):
 
 
 # ─── /admin/roles — needs live Postgres (reads roles table) ──────────────
+
 
 @postgres_required
 def test_admin_roles_list_returns_5_system_roles(client):
@@ -229,6 +234,7 @@ def test_admin_roles_create_409_on_duplicate(client):
 
 # ─── /documents — needs live Qdrant for the RBAC metadata lookup ─────────
 
+
 @qdrant_required
 def test_documents_400_on_path_traversal(client):
     """The unit test stubs the Qdrant lookup so the route never reaches it;
@@ -261,6 +267,7 @@ def test_documents_404_for_unindexed_filename(client):
 
 
 # ─── /threads — needs live Postgres ──────────────────────────────────────
+
 
 @postgres_required
 def test_threads_401_without_token(client):

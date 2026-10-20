@@ -87,4 +87,3 @@ if __name__ == "__main__":
     test_approval_hierarchy()
     test_compliance_flags_detection()
     print("All asset management RBAC unit tests passed successfully!")
-

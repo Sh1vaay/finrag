@@ -300,7 +300,12 @@ def main():
         intermediate_path.parent.mkdir(parents=True, exist_ok=True)
         with open(intermediate_path, "w") as f:
             json.dump(
-                {"questions": questions, "answers": answers, "contexts": contexts, "pipeline_time_seconds": round(pipeline_time, 1)},
+                {
+                    "questions": questions,
+                    "answers": answers,
+                    "contexts": contexts,
+                    "pipeline_time_seconds": round(pipeline_time, 1),
+                },
                 f,
                 indent=2,
             )

@@ -45,6 +45,7 @@ def _decision_payload(decision: str, user: User, reason: str | None) -> dict:
     audit (approver, timestamp, reason) into RAGState. The requester reads it
     back via /v1/chat/result."""
     from datetime import datetime, timezone
+
     return {
         "decision": decision,
         "decided_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

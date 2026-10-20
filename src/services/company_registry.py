@@ -117,4 +117,3 @@ def build_company_alias_map() -> dict[str, set[str]]:
 
 def all_company_slugs() -> list[str]:
     return sorted(build_company_alias_map().keys())
-

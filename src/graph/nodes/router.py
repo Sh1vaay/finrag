@@ -37,6 +37,7 @@ def router_node(state: RAGState) -> dict:
             )
             try:
                 from src.services.event_log import emit
+
                 emit(
                     "router",
                     intent=decision.intent,
@@ -62,11 +63,10 @@ def router_node(state: RAGState) -> dict:
         llm = LLMFactory.get_router_llm()
         structured_llm = llm.with_structured_output(RouterDecision)
         result: RouterDecision = structured_llm.invoke([HumanMessage(content=ROUTER_PROMPT.format(query=query))])
-        logger.info(
-            f"Router decision: intent={result.intent}, complexity={result.complexity}, reason={result.reason}"
-        )
+        logger.info(f"Router decision: intent={result.intent}, complexity={result.complexity}, reason={result.reason}")
         try:
             from src.services.event_log import emit
+
             emit("router", intent=result.intent, complexity=result.complexity, reason=result.reason)
         except Exception:
             pass

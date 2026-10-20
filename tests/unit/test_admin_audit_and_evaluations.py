@@ -5,11 +5,10 @@ is stubbed via httpx.MockTransport (same pattern as /admin/costs tests).
 /admin/evaluations reads files from disk and is stubbed by overriding
 the search root via a fixture.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import patch
 
 import httpx
 import pytest
@@ -35,11 +34,10 @@ def client():
 
 # ─── /admin/audit ────────────────────────────────────────────────────────
 
+
 def test_audit_requires_admin(client):
     assert client.get("/admin/audit").status_code in (401, 403)
-    assert client.get(
-        "/admin/audit", headers={"Authorization": f"Bearer {_analyst_token()}"}
-    ).status_code == 403
+    assert client.get("/admin/audit", headers={"Authorization": f"Bearer {_analyst_token()}"}).status_code == 403
 
 
 def _stub_langfuse_traces(payload):
@@ -47,6 +45,7 @@ def _stub_langfuse_traces(payload):
         if "/api/public/traces" in request.url.path:
             return httpx.Response(200, json=payload)
         return httpx.Response(404, json={"error": "not stubbed"})
+
     return httpx.MockTransport(handler)
 
 
@@ -54,17 +53,25 @@ def test_audit_returns_traces_sorted_newest_first(monkeypatch, client):
     payload = {
         "data": [
             {
-                "id": "trace-1", "timestamp": "2026-10-19T10:00:00Z",
-                "userId": "finance", "totalCost": 0.0015, "latency": 1234,
+                "id": "trace-1",
+                "timestamp": "2026-10-19T10:00:00Z",
+                "userId": "finance",
+                "totalCost": 0.0015,
+                "latency": 1234,
                 "name": "litellm-acompletion",
-                "input": {"messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": "What was Apple FY23 revenue?"},
-                ]},
+                "input": {
+                    "messages": [
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": "What was Apple FY23 revenue?"},
+                    ]
+                },
             },
             {
-                "id": "trace-2", "timestamp": "2026-10-19T11:30:00Z",
-                "userId": "analyst", "totalCost": 0.0008, "latency": 980,
+                "id": "trace-2",
+                "timestamp": "2026-10-19T11:30:00Z",
+                "userId": "analyst",
+                "totalCost": 0.0008,
+                "latency": 980,
                 "name": "litellm-acompletion",
                 "input": {"messages": [{"role": "user", "content": "Microsoft margin?"}]},
             },
@@ -100,14 +107,23 @@ def test_audit_query_preview_handles_anthropic_content_blocks(monkeypatch, clien
     preview helper should extract the text part rather than stringify
     the whole structure."""
     payload = {
-        "data": [{
-            "id": "trace-3", "timestamp": "2026-10-19T12:00:00Z",
-            "userId": "finance", "totalCost": 0.001, "latency": 800,
-            "input": {"messages": [{
-                "role": "user",
-                "content": [{"type": "text", "text": "Pfizer Q4 2022 expenses?"}],
-            }]},
-        }]
+        "data": [
+            {
+                "id": "trace-3",
+                "timestamp": "2026-10-19T12:00:00Z",
+                "userId": "finance",
+                "totalCost": 0.001,
+                "latency": 800,
+                "input": {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": "Pfizer Q4 2022 expenses?"}],
+                        }
+                    ]
+                },
+            }
+        ]
     }
     transport = _stub_langfuse_traces(payload)
     real = httpx.AsyncClient
@@ -117,9 +133,7 @@ def test_audit_query_preview_handles_anthropic_content_blocks(monkeypatch, clien
         return real(*args, **kwargs)
 
     monkeypatch.setattr(admin.httpx, "AsyncClient", fake_client)
-    resp = client.get(
-        "/admin/audit", headers={"Authorization": f"Bearer {_admin_token()}"}
-    )
+    resp = client.get("/admin/audit", headers={"Authorization": f"Bearer {_admin_token()}"})
     assert resp.status_code == 200
     assert resp.json()["events"][0]["query"].startswith("Pfizer Q4")
 
@@ -127,6 +141,7 @@ def test_audit_query_preview_handles_anthropic_content_blocks(monkeypatch, clien
 def test_audit_502_on_langfuse_failure(monkeypatch, client):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503, text="upstream down")
+
     transport = httpx.MockTransport(handler)
     real = httpx.AsyncClient
 
@@ -135,9 +150,7 @@ def test_audit_502_on_langfuse_failure(monkeypatch, client):
         return real(*args, **kwargs)
 
     monkeypatch.setattr(admin.httpx, "AsyncClient", fake_client)
-    resp = client.get(
-        "/admin/audit", headers={"Authorization": f"Bearer {_admin_token()}"}
-    )
+    resp = client.get("/admin/audit", headers={"Authorization": f"Bearer {_admin_token()}"})
     assert resp.status_code == 502
 
 
@@ -151,11 +164,10 @@ def test_audit_validates_query_params(client):
 
 # ─── /admin/evaluations ──────────────────────────────────────────────────
 
+
 def test_evaluations_requires_admin(client):
     assert client.get("/admin/evaluations").status_code in (401, 403)
-    assert client.get(
-        "/admin/evaluations", headers={"Authorization": f"Bearer {_analyst_token()}"}
-    ).status_code == 403
+    assert client.get("/admin/evaluations", headers={"Authorization": f"Bearer {_analyst_token()}"}).status_code == 403
 
 
 def test_evaluations_normalizes_string_and_dict_metric_fields(tmp_path, monkeypatch, client):
@@ -166,24 +178,32 @@ def test_evaluations_normalizes_string_and_dict_metric_fields(tmp_path, monkeypa
     root.mkdir(parents=True)
 
     # Old-style: metrics as JSON strings
-    (root / "eval_old_style.json").write_text(json.dumps({
-        "num_samples": 150,
-        "pipeline_time_seconds": 4320,
-        "correctness": json.dumps({"pass_rate": 0.30, "n_pass": 45, "n_samples": 150}),
-        "ragas": json.dumps({"faithfulness": 0.47, "context_precision": 0.55}),
-        "deepeval": json.dumps({"faithfulness": 0.63}),
-        "diagnostics": json.dumps({"refusal_rate": 0.12}),
-    }))
+    (root / "eval_old_style.json").write_text(
+        json.dumps(
+            {
+                "num_samples": 150,
+                "pipeline_time_seconds": 4320,
+                "correctness": json.dumps({"pass_rate": 0.30, "n_pass": 45, "n_samples": 150}),
+                "ragas": json.dumps({"faithfulness": 0.47, "context_precision": 0.55}),
+                "deepeval": json.dumps({"faithfulness": 0.63}),
+                "diagnostics": json.dumps({"refusal_rate": 0.12}),
+            }
+        )
+    )
 
     # New-style: metrics as dicts
-    (root / "eval_new_style.json").write_text(json.dumps({
-        "num_samples": 150,
-        "pipeline_time_seconds": 6500,
-        "correctness": {"pass_rate": 0.467, "n_pass": 70, "n_samples": 150},
-        "ragas": {"faithfulness": 0.71, "context_precision": 0.73},
-        "deepeval": {"faithfulness": 0.83},
-        "diagnostics": {"refusal_rate": 0.07},
-    }))
+    (root / "eval_new_style.json").write_text(
+        json.dumps(
+            {
+                "num_samples": 150,
+                "pipeline_time_seconds": 6500,
+                "correctness": {"pass_rate": 0.467, "n_pass": 70, "n_samples": 150},
+                "ragas": {"faithfulness": 0.71, "context_precision": 0.73},
+                "deepeval": {"faithfulness": 0.83},
+                "diagnostics": {"refusal_rate": 0.07},
+            }
+        )
+    )
 
     # Decoy files that must be filtered out
     (root / "eval_old_style.pipeline.json").write_text("{}")
@@ -231,10 +251,14 @@ def test_evaluations_handles_malformed_snapshot(tmp_path, monkeypatch, client):
     root = tmp_path / "tests/evaluation/eval_results"
     root.mkdir(parents=True)
     (root / "eval_corrupted.json").write_text("not-valid-json{")
-    (root / "eval_good.json").write_text(json.dumps({
-        "num_samples": 150,
-        "correctness": {"pass_rate": 0.5, "n_pass": 75, "n_samples": 150},
-    }))
+    (root / "eval_good.json").write_text(
+        json.dumps(
+            {
+                "num_samples": 150,
+                "correctness": {"pass_rate": 0.5, "n_pass": 75, "n_samples": 150},
+            }
+        )
+    )
 
     monkeypatch.chdir(tmp_path)
     resp = client.get(

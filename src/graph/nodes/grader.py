@@ -1,4 +1,5 @@
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 from langchain_core.messages import HumanMessage
@@ -18,8 +19,7 @@ logger = logging.getLogger(__name__)
 # an independent request, so an 8-wide ThreadPoolExecutor lets all 8
 # (or however many survived stages 1+2) overlap.
 # Env-overridable for custom provider rate limits.
-import os as _os
-_GRADER_PARALLELISM = int(_os.environ.get("GRADER_PARALLELISM", "8"))
+_GRADER_PARALLELISM = int(os.environ.get("GRADER_PARALLELISM", "8"))
 
 
 def _entity_match(chunk: dict, target_company: str | None) -> bool:
@@ -78,13 +78,13 @@ def grader_node(state: RAGState) -> dict:
 
     ltr_scores = None
     if settings.ENABLE_LTR_GATE:
-        feats = build_features(query=query, candidates=chunks, target_company=target_company, target_fiscal_year=target_fiscal_year)
+        feats = build_features(
+            query=query, candidates=chunks, target_company=target_company, target_fiscal_year=target_fiscal_year
+        )
         ltr_scores = score_candidates(feats, settings.LTR_GATE_MODEL_PATH)
         dump_feature_log("data/diagnostics/ltr_features.jsonl", query, feats, ltr_scores)
         if ltr_scores:
-            candidate_diagnostics.extend(
-                {"candidate_id": i, "ltr_score": s} for i, s in enumerate(ltr_scores)
-            )
+            candidate_diagnostics.extend({"candidate_id": i, "ltr_score": s} for i, s in enumerate(ltr_scores))
 
     llm = LLMFactory.get_grader_llm()
     structured_llm = llm.with_structured_output(GradeResult)
@@ -194,17 +194,10 @@ def grader_node(state: RAGState) -> dict:
     # optional fallback can pass through top-K reranker chunks.
     # Controlled by ENABLE_GRADER_EMPTY_CONTEXT_FALLBACK feature flag (default False).
     grader_fallback_used = False
-    if (
-        settings.ENABLE_GRADER_EMPTY_CONTEXT_FALLBACK
-        and not relevant_chunks
-        and chunks
-    ):
+    if settings.ENABLE_GRADER_EMPTY_CONTEXT_FALLBACK and not relevant_chunks and chunks:
         # Skip chunks the entity-match stage rejected — those are RBAC-adjacent
         # cross-company chunks we never want to leak through the pipeline.
-        salvageable = [
-            (i, chunk) for i, chunk in enumerate(chunks)
-            if _entity_match(chunk, target_company)
-        ]
+        salvageable = [(i, chunk) for i, chunk in enumerate(chunks) if _entity_match(chunk, target_company)]
         if salvageable:
             fallback_n = min(settings.GRADING_MIN_RELEVANT_CHUNKS, len(salvageable))
             relevant_chunks = [chunk for _, chunk in salvageable[:fallback_n]]
@@ -230,10 +223,18 @@ def grader_node(state: RAGState) -> dict:
         f"{len(pending_indices)} sent to LLM in parallel){fallback_msg}"
     )
     from src.services.event_log import emit
-    emit("grader", n_input=len(chunks), n_relevant=len(relevant_chunks),
-         n_rejected_entity=rejected_by_entity, n_cache_hit=cache_hits,
-         n_sent_to_llm=len(pending_indices), fallback_used=grader_fallback_used,
-         grader_model=grader_model, parallelism=_GRADER_PARALLELISM)
+
+    emit(
+        "grader",
+        n_input=len(chunks),
+        n_relevant=len(relevant_chunks),
+        n_rejected_entity=rejected_by_entity,
+        n_cache_hit=cache_hits,
+        n_sent_to_llm=len(pending_indices),
+        fallback_used=grader_fallback_used,
+        grader_model=grader_model,
+        parallelism=_GRADER_PARALLELISM,
+    )
 
     return {
         "relevant_chunks": relevant_chunks,

@@ -1,7 +1,5 @@
 """Unit tests for conditional edge routing functions in src/graph/edges.py."""
 
-import pytest
-
 from src.graph.edges import (
     route_after_grading,
     route_after_guardrails,
@@ -9,7 +7,6 @@ from src.graph.edges import (
     route_after_hitl,
     route_after_router,
 )
-
 
 # ---------------------------------------------------------------------------
 # route_after_guardrails

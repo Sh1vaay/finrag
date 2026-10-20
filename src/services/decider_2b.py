@@ -17,7 +17,6 @@ import json
 import logging
 import re
 import time
-from typing import Any
 
 import httpx
 
@@ -153,7 +152,9 @@ class StrandDecider2B:
             r"\b(quote for|trading multiple)\b",
         ]
         is_market_query = any(re.search(pat, q_lower) for pat in market_patterns)
-        is_sec_document_query = any(k in q_lower for k in ("10-k", "10k", "10-q", "10q", "sec filing", "annual report", "audited footnote"))
+        is_sec_document_query = any(
+            k in q_lower for k in ("10-k", "10k", "10-q", "10q", "sec filing", "annual report", "audited footnote")
+        )
 
         if is_market_query and not is_sec_document_query:
             elapsed_ms = (time.perf_counter() - start_t) * 1000.0

@@ -89,13 +89,15 @@ def _build_system_message(llm) -> SystemMessage:
     the agent system prompt + accumulated reasoning clear 1024 tokens.
     """
     if isinstance(llm, ChatAnthropic):
-        return SystemMessage(content=[
-            {
-                "type": "text",
-                "text": GENERATOR_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ])
+        return SystemMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": GENERATOR_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        )
     return SystemMessage(content=GENERATOR_SYSTEM_PROMPT)
 
 
@@ -112,8 +114,7 @@ def _log_cache_stats(response) -> None:
         total_input = cache_read + cache_create + input_tokens
         hit_pct = (cache_read / total_input * 100) if total_input else 0
         logger.info(
-            f"Generator cache: read={cache_read}, created={cache_create}, "
-            f"uncached={input_tokens} (hit {hit_pct:.0f}%)"
+            f"Generator cache: read={cache_read}, created={cache_create}, uncached={input_tokens} (hit {hit_pct:.0f}%)"
         )
 
 
@@ -167,10 +168,7 @@ async def generator_node(state: RAGState) -> dict:
     # turn since there's nothing to add.
     prior_qa = _format_prior_qa(state.get("messages") or [], max_turns=2)
     if prior_qa:
-        context = (
-            f"## Recent conversation (for context):\n\n{prior_qa}\n\n"
-            f"---\n\n{context}"
-        )
+        context = f"## Recent conversation (for context):\n\n{prior_qa}\n\n---\n\n{context}"
     user_prompt = GENERATOR_USER_TEMPLATE.format(context=context, query=query)
 
     try:
@@ -187,11 +185,15 @@ async def generator_node(state: RAGState) -> dict:
             return {"generated_answer": "I couldn't generate a response. Please try again."}
         _log_cache_stats(result)
         logger.info(f"Generated answer: {len(result.content)} chars")
-        from src.services.event_log import emit
         from src.config.settings import settings as _settings
-        emit("generator", answer_chars=len(result.content),
-             n_context_chunks=len(chunks) if chunks else 0,
-             model=_settings.GENERATOR_MODEL)
+        from src.services.event_log import emit
+
+        emit(
+            "generator",
+            answer_chars=len(result.content),
+            n_context_chunks=len(chunks) if chunks else 0,
+            model=_settings.GENERATOR_MODEL,
+        )
         return {
             "generated_answer": result.content,
             "messages": [AIMessage(content=result.content)],

@@ -13,6 +13,7 @@ is a recall booster, not a load-bearing dependency.
 Reference: arXiv 2509.16369 (Multi-HyDE on financial QA: +11.2% accuracy,
 -15% hallucinations vs single-HyDE).
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,10 +64,12 @@ def _generate_uncached(
         query=query,
     )
     try:
-        result = llm.invoke([
-            SystemMessage(content=prompt),
-            HumanMessage(content=f"Generate {n} hypothetical passages now."),
-        ])
+        result = llm.invoke(
+            [
+                SystemMessage(content=prompt),
+                HumanMessage(content=f"Generate {n} hypothetical passages now."),
+            ]
+        )
         raw = result.content if isinstance(result.content, str) else str(result.content)
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Multi-HyDE generation failed ({type(exc).__name__}): {exc}")
@@ -75,8 +78,7 @@ def _generate_uncached(
     hypotheticals = _parse_hypotheticals(raw, n)
     if len(hypotheticals) < n:
         logger.warning(
-            f"Multi-HyDE: parsed {len(hypotheticals)}/{n} passages from output. "
-            f"Proceeding with what we got."
+            f"Multi-HyDE: parsed {len(hypotheticals)}/{n} passages from output. Proceeding with what we got."
         )
     return hypotheticals
 

@@ -4,6 +4,7 @@ ingest_file is patched so we don't run the real Docling/embedding/Qdrant
 path; we just verify the route saves files to DOCUMENTS_ROOT, calls
 ingest_file with the right kwargs, and reports per-file results.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -31,9 +32,13 @@ def client(tmp_path, monkeypatch):
 
 def test_upload_requires_admin(client):
     c, _ = client
-    resp = c.post("/ingest/upload", headers={"Authorization": f"Bearer {_analyst_token()}"}, files=[
-        ("files", ("a.pdf", b"%PDF-1.4\nstub", "application/pdf")),
-    ])
+    resp = c.post(
+        "/ingest/upload",
+        headers={"Authorization": f"Bearer {_analyst_token()}"},
+        files=[
+            ("files", ("a.pdf", b"%PDF-1.4\nstub", "application/pdf")),
+        ],
+    )
     assert resp.status_code == 403
 
 

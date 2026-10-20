@@ -41,7 +41,7 @@ def _pool_or_503(http_request: Request):
 
 
 def _is_interrupted(graph_state) -> tuple[bool, dict | None]:
-    for task in (graph_state.tasks or []):
+    for task in graph_state.tasks or []:
         if getattr(task, "interrupts", None):
             v = task.interrupts[0].value
             return True, v if isinstance(v, dict) else {"value": str(v)}
@@ -61,6 +61,7 @@ async def list_approvals(
     graph = getattr(http_request.app.state, "graph", None)
     if graph is None:
         from src.api.routes.chat import _get_graph
+
         graph = _get_graph(checkpointer=http_request.app.state.checkpointer)
 
     pending: list[dict[str, Any]] = []
@@ -91,20 +92,22 @@ async def list_approvals(
             sources_count = len(meta.get("sources") or [])
             confidence = gs.values.get("hallucination_score")
 
-        pending.append({
-            "thread_id": thread_id,
-            "requester_user_id": requester_user_id,
-            "requester_name": r.get("name"),
-            "requester_department": r.get("department"),
-            "requester_role": requester_role,
-            "query": query[:200],
-            "reason": (payload or {}).get("reason"),
-            "max_amount": (payload or {}).get("max_amount"),
-            "threshold": (payload or {}).get("threshold"),
-            "submitted_at": (payload or {}).get("submitted_at"),
-            "sources_count": sources_count,
-            "confidence": confidence,
-        })
+        pending.append(
+            {
+                "thread_id": thread_id,
+                "requester_user_id": requester_user_id,
+                "requester_name": r.get("name"),
+                "requester_department": r.get("department"),
+                "requester_role": requester_role,
+                "query": query[:200],
+                "reason": (payload or {}).get("reason"),
+                "max_amount": (payload or {}).get("max_amount"),
+                "threshold": (payload or {}).get("threshold"),
+                "submitted_at": (payload or {}).get("submitted_at"),
+                "sources_count": sources_count,
+                "confidence": confidence,
+            }
+        )
 
     return {"approvals": pending, "count": len(pending)}
 
@@ -120,6 +123,7 @@ async def show_approval(
     pool = _pool_or_503(http_request)
 
     from src.services.thread_service import get_thread_owner_role
+
     owner, requester_role, requester_name, requester_dept = await get_thread_owner_role(pool, thread_id)
     if owner is None:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -133,6 +137,7 @@ async def show_approval(
     graph = getattr(http_request.app.state, "graph", None)
     if graph is None:
         from src.api.routes.chat import _get_graph
+
         graph = _get_graph(checkpointer=http_request.app.state.checkpointer)
 
     cfg = {"configurable": {"thread_id": thread_id}}
@@ -160,6 +165,7 @@ async def show_approval(
     if submitted_at_str:
         try:
             from datetime import datetime, timezone
+
             submitted_dt = datetime.fromisoformat(submitted_at_str)
             if submitted_dt.tzinfo is None:
                 submitted_dt = submitted_dt.replace(tzinfo=timezone.utc)

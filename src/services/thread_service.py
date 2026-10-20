@@ -13,6 +13,7 @@ construction at chat.py:89). The Postgres-saver persists that blob into
 For thread title we pick the first user message captured in the earliest
 checkpoint for the thread — the chat input.
 """
+
 from __future__ import annotations
 
 import logging
@@ -145,9 +146,7 @@ LIMIT %s OFFSET %s
 _COUNT_ALL_SQL = "SELECT COUNT(DISTINCT thread_id) FROM checkpoints"
 
 
-async def list_all_threads_paged(
-    pool, limit: int = 50, offset: int = 0
-) -> tuple[list[dict[str, Any]], int]:
+async def list_all_threads_paged(pool, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
     """Admin-only: paginated list of EVERY thread (cross-user), enriched with
     owner metadata + decoded timestamps. Same row shape as
     `list_threads_for_user` so the route handler can treat both uniformly.

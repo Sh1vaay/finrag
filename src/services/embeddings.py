@@ -14,6 +14,7 @@ Voyage's SDK does not auto-retry transient errors, so we wrap calls with
 exponential backoff for rate limits, 5xx, timeouts, and network drops.
 AbaciNLP uses OpenAI's SDK which has built-in retries.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from openai import OpenAI
+    pass
 
 try:
     from src.config.settings import settings
@@ -39,9 +40,7 @@ VOYAGE_MAX_RETRIES = 5
 VOYAGE_INITIAL_BACKOFF_S = 2.0
 
 ABACI_BASE_URL = "https://abacinlp.com/v1"
-ABACI_QUERY_INSTRUCTION = (
-    "Given a financial question, retrieve relevant passages that answer the query."
-)
+ABACI_QUERY_INSTRUCTION = "Given a financial question, retrieve relevant passages that answer the query."
 
 
 def _get_bgem3_embedder():
@@ -50,10 +49,12 @@ def _get_bgem3_embedder():
     if _bgem3_embedder is None:
         try:
             from fastembed import TextEmbedding
+
             _bgem3_embedder = TextEmbedding(model_name="BAAI/bge-m3")
         except Exception:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 _bgem3_embedder = SentenceTransformer("BAAI/bge-m3")
             except Exception as e:
                 logger.warning("Local BGE-M3 embedder not available (%s); using deterministic pseudo-embeddings.", e)
@@ -75,6 +76,7 @@ def _bgem3_embed(texts: list[str], input_type: str = "document") -> list[list[fl
             logger.warning("BGE-M3 inference error: %s; falling back to deterministic vectors", e)
 
     import hashlib
+
     vectors = []
     for text in texts:
         h = hashlib.sha256(text.encode("utf-8")).digest()
@@ -128,9 +130,7 @@ def _abaci_embed(texts: list[str], input_type: str) -> list[list[float]]:
         formatted = [_abaci_format_query(t) for t in texts]
     else:
         formatted = texts
-    response = _get_abaci_client().embeddings.create(
-        input=formatted, model=settings.EMBEDDING_MODEL
-    )
+    response = _get_abaci_client().embeddings.create(input=formatted, model=settings.EMBEDDING_MODEL)
     return [item.embedding for item in response.data]
 
 
@@ -165,13 +165,14 @@ def _voyage_embed(texts: list[str], input_type: str) -> list[list[float]]:
                 break
             logger.warning(
                 "Voyage transient error (attempt %d/%d): %s — retrying in %.1fs",
-                attempt, VOYAGE_MAX_RETRIES, type(err).__name__, backoff,
+                attempt,
+                VOYAGE_MAX_RETRIES,
+                type(err).__name__,
+                backoff,
             )
             time.sleep(backoff)
             backoff *= 2
-    raise RuntimeError(
-        f"Voyage embed failed after {VOYAGE_MAX_RETRIES} attempts: {last_err}"
-    )
+    raise RuntimeError(f"Voyage embed failed after {VOYAGE_MAX_RETRIES} attempts: {last_err}")
 
 
 def embed_text(text: str, input_type: str = "query") -> list[float]:

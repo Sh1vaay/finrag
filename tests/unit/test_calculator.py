@@ -5,6 +5,7 @@ Three axes of coverage:
   2. Whitelist boundary — explicit injection / sandbox-escape attempts
   3. Error handling — empty input, syntax errors, division by zero, non-finite results
 """
+
 from __future__ import annotations
 
 import math
@@ -35,14 +36,13 @@ except ImportError:
     pytest = _MockPytest()
 
 from src.tools.calculator import (
+    MAX_EXPRESSION_LEN,
     CalculatorDisallowedError,
     CalculatorError,
     CalculatorParseError,
     CalculatorRuntimeError,
-    MAX_EXPRESSION_LEN,
     compute,
 )
-
 
 # ─── Arithmetic correctness ──────────────────────────────────────────────
 
@@ -311,10 +311,7 @@ if __name__ == "__main__":
 
     passed = 0
     current_module = sys.modules[__name__]
-    test_classes = [
-        cls for name, cls in inspect.getmembers(current_module, inspect.isclass)
-        if name.startswith("Test")
-    ]
+    test_classes = [cls for name, cls in inspect.getmembers(current_module, inspect.isclass) if name.startswith("Test")]
     for cls in test_classes:
         instance = cls()
         for method_name in dir(instance):

@@ -175,9 +175,7 @@ def calculate_portfolio_risk_metrics(
         raise FinancialCalculationError("Total holdings value must be positive")
 
     # Normalize weights to percentages (0-100)
-    normalized_weights: dict[str, float] = {
-        ticker: (val / total_val) * 100.0 for ticker, val in holdings.items()
-    }
+    normalized_weights: dict[str, float] = {ticker: (val / total_val) * 100.0 for ticker, val in holdings.items()}
 
     sorted_holdings = sorted(normalized_weights.items(), key=lambda x: x[1], reverse=True)
 

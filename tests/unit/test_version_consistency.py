@@ -7,6 +7,7 @@ parsing — no heavy imports, runs in the standard unit-test step.
 
 Keep this list in sync with scripts/internal/bump_version.py.
 """
+
 import re
 import tomllib
 from pathlib import Path
@@ -20,8 +21,8 @@ SEMVER = r"(\d+\.\d+\.\d+)"
 # (relative path, regex with one capture group for the version)
 VERSION_SITES = [
     ("cli/__init__.py", rf'__version__ = "{SEMVER}"'),
-    ("src/api/main.py", rf'version="{SEMVER}"'),          # FastAPI app.version
-    ("Dockerfile", rf'version="{SEMVER}"'),               # LABEL version
+    ("src/api/main.py", rf'version="{SEMVER}"'),  # FastAPI app.version
+    ("Dockerfile", rf'version="{SEMVER}"'),  # LABEL version
     ("compose.minimal.yml", rf"FB_IMAGE_TAG:-{SEMVER}"),
     ("docker-compose.yml", rf"FB_IMAGE_TAG:-{SEMVER}"),
 ]

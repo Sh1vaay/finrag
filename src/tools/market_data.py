@@ -11,10 +11,10 @@ Implements the Enterprise Adapter Pattern for financial market data:
 from __future__ import annotations
 
 import abc
-from datetime import datetime, timezone
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 try:
@@ -191,9 +191,7 @@ class YahooFinanceProvider(BaseMarketDataProvider):
             fast_info = getattr(t, "fast_info", {}) or {}
 
             current_price = (
-                info.get("currentPrice")
-                or info.get("regularMarketPrice")
-                or getattr(fast_info, "last_price", None)
+                info.get("currentPrice") or info.get("regularMarketPrice") or getattr(fast_info, "last_price", None)
             )
             market_cap = info.get("marketCap") or getattr(fast_info, "market_cap", None)
 
@@ -231,7 +229,9 @@ class YahooFinanceProvider(BaseMarketDataProvider):
 
 def get_market_data_provider() -> BaseMarketDataProvider:
     """Return configured market data provider instance."""
-    provider_name = (os.environ.get("MARKET_DATA_PROVIDER") or getattr(settings, "MARKET_DATA_PROVIDER", "yfinance")).lower()
+    provider_name = (
+        os.environ.get("MARKET_DATA_PROVIDER") or getattr(settings, "MARKET_DATA_PROVIDER", "yfinance")
+    ).lower()
     if provider_name in ("bloomberg", "bpipe", "institutional", "institutional_mock", "bloomberg_sim"):
         return InstitutionalBpipeProvider()
     return YahooFinanceProvider()
