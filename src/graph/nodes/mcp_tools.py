@@ -112,9 +112,11 @@ def mcp_tools_node(state: RAGState) -> dict:
             content_lines.append(f"Market Data Error for {ticker}: {res.get('text')}")
         else:
             d = res["data"]
+            market_cap = d.get("market_cap")
+            market_cap_text = f"${market_cap / 1e9:.2f}B" if isinstance(market_cap, (int, float)) else "N/A"
             content_lines.append(
                 f"Ticker: {d.get('ticker')} | Live Price: ${d.get('current_price', 'N/A')} | "
-                f"Market Cap: ${d.get('market_cap', 0) / 1e9:.2f}B | Trailing P/E: {d.get('trailing_pe', 'N/A')} | "
+                f"Market Cap: {market_cap_text} | Trailing P/E: {d.get('trailing_pe', 'N/A')} | "
                 f"Forward P/E: {d.get('forward_pe', 'N/A')} | Beta: {d.get('beta', 'N/A')} | "
                 f"52-Week Range: ${d.get('fifty_two_week_low', 'N/A')} - ${d.get('fifty_two_week_high', 'N/A')}"
             )

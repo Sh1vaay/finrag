@@ -59,6 +59,8 @@ def main():
         else:
             print("✗ FAILED")
             print("-" * 60)
+            print(f"Command: {sys.executable} {path}")
+            print(f"Exit code: {res.returncode}")
             if res.stdout:
                 print(res.stdout)
             if res.stderr:

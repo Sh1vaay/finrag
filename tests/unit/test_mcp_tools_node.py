@@ -9,54 +9,15 @@ Verifies:
 
 from __future__ import annotations
 
+import os
 import sys
-import types
-from importlib.machinery import ModuleSpec
 from pathlib import Path
-from unittest.mock import MagicMock
+
+# Force deterministic institutional provider for tests
+os.environ["MARKET_DATA_PROVIDER"] = "institutional"
 
 # Ensure root directory is on pythonpath
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-
-class _FakeBaseModel:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-class _DynamicMockModule(types.ModuleType):
-    def __getattr__(self, name):
-        if name in ("BaseModel", "BaseSettings"):
-            return _FakeBaseModel
-        if name == "model_validator":
-            return lambda *args, **kwargs: lambda fn: fn
-        if name == "Field":
-            return lambda *args, **kwargs: kwargs.get("default")
-        return MagicMock()
-
-
-class _DynamicMockLoader:
-    def __init__(self, name):
-        self.name = name
-
-    def create_module(self, spec):
-        mod = _DynamicMockModule(spec.name)
-        mod.__path__ = []
-        return mod
-
-    def exec_module(self, module):
-        pass
-
-
-class _DynamicMockFinder:
-    def find_spec(self, fullname, path, target=None):
-        if any(fullname.startswith(pkg) for pkg in ["langchain", "langgraph", "pydantic"]):
-            return ModuleSpec(fullname, _DynamicMockLoader(fullname), is_package=True)
-        return None
-
-
-sys.meta_path.insert(0, _DynamicMockFinder())
 
 from src.graph.edges import route_after_router
 from src.graph.nodes.mcp_tools import mcp_tools_node
